@@ -1,0 +1,20 @@
+{
+  "name": "qplotly",
+  "version": "1.0.0",
+  "description": "Data plotly plugin ",
+  "main": "index.js",
+  "scripts": {
+    "watch": "../../../node_modules/.bin/gulp watch",
+    "build": "../../../node_modules/.bin/gulp default"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/g3w-suite/g3w-client-plugin-qplotly.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/g3w-suite/g3w-client-plugin-qplotly/issues"
+  },
+  "homepage": "https://github.com/g3w-suite/g3w-client-plugin-qplotly#readme"
+}

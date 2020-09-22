@@ -27,9 +27,9 @@ gulp.task('browserify', [], function() {
     bundler = watchify(bundler);
   }
   bundler.transform(vueify)
-  .transform(babelify, {
-    babelrc: true
-  });
+    .transform(babelify, {
+      babelrc: true
+    });
   bundler.transform(stringify, {
     appliesTo: { includeExtensions: ['.html'] }
   });
@@ -73,7 +73,7 @@ gulp.task('browserify', [], function() {
 
 
 gulp.task('production', function(){
-    production = true;
+  production = true;
 });
 
 gulp.task('sourcemap', function(){

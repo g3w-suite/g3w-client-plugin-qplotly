@@ -1,4 +1,8 @@
 export default {
-  it: {},
-  en: {}
+  it: {
+    title: 'Grafici'
+  },
+  en: {
+    title: 'Chart'
+  }
 }

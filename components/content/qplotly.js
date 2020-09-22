@@ -4,10 +4,13 @@ const Component = g3wsdk.gui.vue.Component;
 
 function QPlotlyComponent(options={}){
   base(this, options);
-  this.title = options.title || "qplotly";
+  const {service} = options;
+  this.title = "qplotly";
   this.state.visible = true;
   const InternalComponent = Vue.extend(QPlotly);
-  this.internalComponent = new InternalComponent();
+  this.internalComponent = new InternalComponent({
+    service
+  });
 }
 
 inherit(QPlotlyComponent, Component);

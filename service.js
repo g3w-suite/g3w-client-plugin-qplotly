@@ -13,7 +13,7 @@ function Service(){
    this.config = config;
    ///temp
    const plot2 = JSON.parse(JSON.stringify(this.config.plots[0]));
-   plot2.id = 2;
+   plot2.id = 4;
    this.config.plots = [this.config.plots[0], plot2]
    this.config.plots.forEach((plot, index)=>{
      plot.show = index === 0;
@@ -88,8 +88,10 @@ function Service(){
     this.emit('change-charts', charts);
   };
 
-  this.hidePlot = function(plot){
+  this.hidePlot = async function(plot){
     plot.show = false;
+    const charts = await this.getCharts();
+    this.emit('change-charts', charts);
   };
 
   this.getPlots = function(){
@@ -107,13 +109,13 @@ function Service(){
       const plots =  this.config.plots.filter(plot => plot.show);
       if (Promise.allSettled) {
        plots.forEach(plot => {
-          promises.push(XHR.get({url: `${BASEQPLOTLYAPIURL}/${1}`}))
+          promises.push(XHR.get({url: `${BASEQPLOTLYAPIURL}/${3}`}))
         });
         Promise.allSettled(promises).then(promisesData=>{
           promisesData.forEach((promise, index) =>{
             if (promise.status === 'fulfilled') {
-              promise.value.result && charts.data.push(promise.value.data) ;
-              charts.layout.push(plots[index].layout)
+              promise.value.result && charts.data.push(promise.value.data[0]) ;
+              charts.layout.push(plots[index].plot.layout)
             }
           });
           resolve(charts)
@@ -144,6 +146,7 @@ function Service(){
       this.mapService.deactiveMapControls();
       GUI.showContent({
         closable: false,
+        title: 'plugins.qplotly.title',
         content: new QPlotlyComponent({
           service: this
         }),

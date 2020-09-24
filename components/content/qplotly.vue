@@ -31,9 +31,10 @@
         await this.$nextTick();
         if (dataLength > 0) {
           if (dataLength > 1) {
-            charts.data[1]["xaxis"] = "x2";
-            charts.data[1]["yaxis"] = "y2";
-            charts.data[1].marker.color="#00FF00";
+            for (let i = 1; i < dataLength; i++) {
+              charts.data[i]["xaxis"] = `x${i+1}`;
+              charts.data[i]["yaxis"] = `y${i+1}`;
+            }
             temp_layout = {
               grid: {
                 rows: dataLength,
@@ -43,7 +44,6 @@
             };
           } else temp_layout = charts.layout[0];
           this.plotly_div = document.getElementById(this.id);
-          console.log(this.plotly_div)
           Plotly[start ? 'newPlot' : 'react'](this.plotly_div, charts.data, temp_layout , config);
         }
       }

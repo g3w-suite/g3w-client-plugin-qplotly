@@ -16,8 +16,10 @@ const _Plugin = function() {
     this.setService(Service);
     this.config = this.getConfig();
     this.service.once('ready', () => {
-      this.setupGUI();
-      this.setReady(true);
+      if (this.registerPlugin(this.config.gid)) {
+        this.setupGUI();
+        this.setReady(true);
+      }
     });
     //inizialize service
     this.service.init(this.config);

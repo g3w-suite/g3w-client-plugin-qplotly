@@ -1,5 +1,5 @@
 import MultiPlot from './components/sidebar/multiplot';
-const { base, inherit, XHR } =  g3wsdk.core.utils;
+const { base, inherit, XHR ,removeScripts} =  g3wsdk.core.utils;
 const GUI = g3wsdk.gui.GUI;
 const ComponentsFactory = g3wsdk.gui.ComponentsFactory;
 const PluginService = g3wsdk.core.plugin.PluginService;
@@ -11,10 +11,6 @@ function Service(){
   this.mapService = GUI.getComponent('map').getService();
   this.init = function(config={}){
    this.config = config;
-   ///temp
-   const plot2 = JSON.parse(JSON.stringify(this.config.plots[0]));
-   plot2.id = 4;
-   this.config.plots = [this.config.plots[0], plot2]
    this.config.plots.forEach((plot, index)=>{
      plot.show = index === 0;
    });
@@ -46,24 +42,23 @@ function Service(){
         }
       }
     );
-
-    GUI.addComponent(QPlotlySiderBarComponent, 'sidebar', {
+    const options = {
       position: 1
-    });
+    };
+
+    GUI.addComponent(QPlotlySiderBarComponent, 'sidebar', options);
 
     this.mapService.on('mapcontrol:active', ()=>{
       if (QPlotlySiderBarComponent.getOpen()) {
-        QPlotlySiderBarComponent.setOpen(false);
-        QPlotlySiderBarComponent.click();
+        QPlotlySiderBarComponent.click({
+          open: false
+        });
       }
     });
-  };
 
-  //remove scripts
-  this.unloadscripts = function(){
-    for (const script of this.config.jsscripts) {
-
-    }
+    this.once('clear', () => {
+      GUI.removeComponent('qplotly', 'sidebar', options)
+    })
   };
 
   //load scripts from server
@@ -109,7 +104,7 @@ function Service(){
       const plots =  this.config.plots.filter(plot => plot.show);
       if (Promise.allSettled) {
        plots.forEach(plot => {
-          promises.push(XHR.get({url: `${BASEQPLOTLYAPIURL}/${3}`}))
+          promises.push(XHR.get({url: `${BASEQPLOTLYAPIURL}/${plot.id}`}))
         });
         Promise.allSettled(promises).then(promisesData=>{
           promisesData.forEach((promise, index) =>{
@@ -156,8 +151,7 @@ function Service(){
   };
 
   this.clear = function(){
-    this.dataloaded = null;
-    this.unloadscripts();
+    this.emit('clear');
     this.mapService = null;
     GUI.closeContent();
   };

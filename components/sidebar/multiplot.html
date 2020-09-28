@@ -1,6 +1,6 @@
-<ul id="chart_plot_multi_plot" class="treeview-menu" style="padding: 10px;">
+<ul id="chart_plot_multi_plot" class="treeview-menu" style="padding: 10px;color:#FFFFFF">
   <li v-for="plot in plots" >
-    <input type="checkbox" :id="plot.id" class="magic-checkbox" :checked="plot.show" @change="addRemovePlot($event, plot)">
+    <input type="checkbox" :id="plot.id" class="magic-checkbox" :checked="plot.show" @change="addRemovePlot($event, plot)" :disabled="disabled">
     <label :for="plot.id">{{plot.id}}</label>
   </li>
 </ul>

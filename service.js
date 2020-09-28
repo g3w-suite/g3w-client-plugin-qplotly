@@ -1,5 +1,5 @@
 import MultiPlot from './components/sidebar/multiplot';
-const { base, inherit, XHR ,removeScripts} =  g3wsdk.core.utils;
+const { base, inherit, XHR ,debounce} =  g3wsdk.core.utils;
 const GUI = g3wsdk.gui.GUI;
 const ComponentsFactory = g3wsdk.gui.ComponentsFactory;
 const PluginService = g3wsdk.core.plugin.PluginService;
@@ -9,6 +9,11 @@ let BASEQPLOTLYAPIURL = '/qplotly/api/trace';
 function Service(){
   base(this);
   this.mapService = GUI.getComponent('map').getService();
+  this.loadedplots = {};
+  this.loading = false;
+  this.state = Vue.observable({
+    loading: false
+  });
   this.init = function(config={}){
    this.config = config;
    this.config.plots.forEach((plot, index)=>{
@@ -77,6 +82,10 @@ function Service(){
     this.emit('ready');
   };
 
+  this.showHidePlot = debounce(({show=false, plot}={})  => {
+    show ? this.showPlot(plot) : this.hidePlot(plot);
+  }, 1000);
+
   this.showPlot = async function(plot){
     plot.show = true;
     const charts = await this.getCharts();
@@ -93,7 +102,13 @@ function Service(){
     return this.config.plots;
   };
 
+  this.clearLoadedPlots = function () {
+    this.loadedplots = {}
+  };
+
   this.getCharts = function(){
+    GUI.setLoadingContent(true);
+    this.state.loading = true;
     return new Promise((resolve, reject) => {
       const charts = {
         data:[],
@@ -104,16 +119,28 @@ function Service(){
       const plots =  this.config.plots.filter(plot => plot.show);
       if (Promise.allSettled) {
        plots.forEach(plot => {
-          promises.push(XHR.get({url: `${BASEQPLOTLYAPIURL}/${plot.id}`}))
+         const promise = this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({url: `${BASEQPLOTLYAPIURL}/${plot.id}`});
+         promises.push(promise)
         });
-        Promise.allSettled(promises).then(promisesData=>{
+        Promise.allSettled(promises).then(async promisesData=>{
           promisesData.forEach((promise, index) =>{
             if (promise.status === 'fulfilled') {
-              promise.value.result && charts.data.push(promise.value.data[0]) ;
-              charts.layout.push(plots[index].plot.layout)
+              if (promise.value.result) {
+                const data = promise.value.data;
+                const plot = plots[index];
+                this.loadedplots[plot.id] = {
+                  result: true,
+                  data
+                };
+                charts.data.push(data[0]) ;
+                charts.layout.push(plot.plot.layout)
+              }
             }
           });
-          resolve(charts)
+          resolve(charts);
+        }).finally(()=>{
+          GUI.setLoadingContent(false);
+          this.state.loading = false;
         })
       } else {
         plots.forEach( async (plot, index) => {
@@ -124,6 +151,8 @@ function Service(){
           } catch(err){}
         });
         resolve(charts);
+        GUI.setLoadingContent(false);
+        this.state.loading = false;
       }
     })
   };

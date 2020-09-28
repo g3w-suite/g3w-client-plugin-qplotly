@@ -1,6 +1,6 @@
 <template>
-  <div id="wrap-charts" style="height: 100%; position:relative;">
-    <div :id="id" v-show="show" style="height: 100%; width: 100%;"></div>
+  <div id="wrap-charts" style="height: 100%; position:relative;" :style="{overflowY: overflowY}">
+    <div :id="id" v-show="show" style="width: 100%;" :style="{height: `${height}%`}"></div>
     <div id="no_plots" v-if="!show" style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
       <h4 style="font-weight: bold;" v-t-plugin="'qplotly.no_plots'"></h4>
     </div>
@@ -16,20 +16,26 @@
     mixins: [resizeMixin],
     data(){
       return {
-        show: true
+        show: true,
+        overflowY: 'none',
+        height: 100
       }
     },
     methods: {
       resize(){
         this.plotly_div && Plotly.Plots.resize(this.plotly_div)
       },
-      async handleDataLayout({start=false, charts={}}={}){
+      async handleDataLayout({charts={}}={}){
         const config = this.$options.service.getChartConfig();
         let temp_layout;
         const dataLength = charts.data.length;
+        this.height = 100 + (dataLength > 2 ? dataLength - 2 : 0) * 50;
+        this.overflowY = dataLength > 2 ? 'auto' : 'none';
         this.show = dataLength > 0;
         await this.$nextTick();
         if (dataLength > 0) {
+          delete charts.data[0]["xaxis"];
+          delete charts.data[0]["yaxis"];
           if (dataLength > 1) {
             for (let i = 1; i < dataLength; i++) {
               charts.data[i]["xaxis"] = `x${i+1}`;
@@ -40,11 +46,11 @@
                 rows: dataLength,
                 columns: 1,
                 pattern: 'independent',
-                roworder: 'bottom to top'}
+                roworder: 'top to bottom'}
             };
           } else temp_layout = charts.layout[0];
           this.plotly_div = document.getElementById(this.id);
-          Plotly[start ? 'newPlot' : 'react'](this.plotly_div, charts.data, temp_layout , config);
+          Plotly.newPlot(this.plotly_div, charts.data, temp_layout , config);
         }
       }
     },
@@ -62,14 +68,10 @@
         })
       };
       this.$options.service.on('change-charts', this.getCharts);
-      GUI.setLoadingContent(true);
       const charts = await this.$options.service.getCharts();
       this.show = charts.data.length > 0;
-      await this.$nextTick();
-      GUI.setLoadingContent(false);
       if (this.show) {
         await this.handleDataLayout({
-          start: true,
           charts
         });
         this.plotly_div.on('plotly_selected', function(data){
@@ -166,6 +168,7 @@
     },
     beforeDestroy() {
       this.$options.service.off('change-charts', this.getCharts);
+      this.$options.service.clearLoadedPlots();
       Plotly.purge(this.plotly_div);
       this.plotly_div = null;
     }

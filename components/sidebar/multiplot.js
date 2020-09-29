@@ -12,6 +12,12 @@ export default function MultiPlot({service}={}){
     computed: {
       disabled(){
         return service.state.loading;
+      },
+      pieplots(){
+        return this.plots.filter(plot => plot.plot.type === 'pie');
+      },
+      subplots(){
+        return this.plots.filter(plot => plot.plot.type !== 'pie');
       }
     },
     methods:{

@@ -18,15 +18,16 @@ function Service(){
    this.config = config;
    this.config.plots.forEach((plot, index)=>{
      plot.show = index === 0;
+     plot.label = plot.plot.layout.title ||  `Plot id [${plot.id}]`;
    });
    BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;
    this.loadscripts();
   };
   
   this.createSideBarComponent = function(){
-    const vueComponentObject = this.config.plots.length > 1 ?  MultiPlot({
+    const vueComponentObject = MultiPlot({
       service : this
-    }): undefined ;
+    });
     const QPlotlySiderBarComponent = ComponentsFactory.build(
       {
         vueComponentObject
@@ -82,12 +83,19 @@ function Service(){
     this.emit('ready');
   };
 
-  this.showHidePlot = debounce(({show=false, plot}={})  => {
-    show ? this.showPlot(plot) : this.hidePlot(plot);
-  }, 1000);
-
   this.showPlot = async function(plot){
     plot.show = true;
+    const id = plot.id;
+    const type = plot.plot.type;
+    if (type === 'pie') {
+      this.config.plots.forEach(plot => {
+        if (plot.id !== id)  plot.show = false
+      })
+    } else {
+      this.config.plots.forEach(plot => {
+        if (plot.plot.type === 'pie')  plot.show = false
+      })
+    }
     const charts = await this.getCharts();
     this.emit('change-charts', charts);
   };

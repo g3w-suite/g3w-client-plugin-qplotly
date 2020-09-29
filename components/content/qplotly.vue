@@ -1,7 +1,7 @@
 <template>
   <div id="wrap-charts" style="height: 100%; position:relative;" :style="{overflowY: overflowY}">
-    <div :id="id" v-show="show" style="width: 100%;" :style="{height: `${height}%`}"></div>
-    <div id="no_plots" v-if="!show" style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
+    <div id="qplotly_div" v-if="show" style="width: 100%;" :style="{height: `${height}%`}"></div>
+    <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
       <h4 style="font-weight: bold;" v-t-plugin="'qplotly.no_plots'"></h4>
     </div>
   </div>
@@ -32,10 +32,12 @@
         this.height = 100 + (dataLength > 2 ? dataLength - 2 : 0) * 50;
         this.overflowY = dataLength > 2 ? 'auto' : 'none';
         this.show = dataLength > 0;
+        !this.show && this.plotly_div && Plotly.purge(this.plotly_div);
         await this.$nextTick();
         if (dataLength > 0) {
-          delete charts.data[0]["xaxis"];
-          delete charts.data[0]["yaxis"];
+          const first_chart = charts.data[0];
+          delete first_chart["xaxis"];
+          delete first_chart["yaxis"];
           if (dataLength > 1) {
             for (let i = 1; i < dataLength; i++) {
               charts.data[i]["xaxis"] = `x${i+1}`;
@@ -49,16 +51,13 @@
                 roworder: 'top to bottom'}
             };
           } else temp_layout = charts.layout[0];
-          this.plotly_div = document.getElementById(this.id);
+          this.plotly_div = document.getElementById('qplotly_div');
           Plotly.newPlot(this.plotly_div, charts.data, temp_layout , config);
         }
       }
     },
     beforeCreate(){
       this.delayType = 'debounce';
-    },
-    created(){
-      this.id = getUniqueDomId();
     },
     async mounted(){
       await this.$nextTick();

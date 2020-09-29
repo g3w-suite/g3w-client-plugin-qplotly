@@ -1,7 +1,18 @@
 <ul id="chart_plot_multi_plot" class="treeview-menu" style="padding: 10px;color:#FFFFFF">
-  <li v-for="plot in plots" >
+  <li style="padding: 3px; margin-bottom: 3px; display: flex; background-color: #FFFFFF; justify-content: center; font-weight: bold">
+    <span class="skin-color" v-t-plugin="'qplotly.pietitle'"></span>
+  </li>
+  <li v-for="plot in pieplots">
+    <input type="radio" :id="plot.id" class="magic-radio" :checked="plot.show" @change="addRemovePlot($event, plot)" :disabled="disabled">
+    <label :for="plot.id">{{plot.label}}</label>
+  </li>
+  <div v-f="subplots.lenght && pieplots.lenght" style="border-bottom: 2px solid; margin-top: 10px; margin-bottom: 10px;" class="skin-border-color"></div>
+  <li v-for="plot in subplots">
     <input type="checkbox" :id="plot.id" class="magic-checkbox" :checked="plot.show" @change="addRemovePlot($event, plot)" :disabled="disabled">
-    <label :for="plot.id">{{plot.id}}</label>
+    <label :for="plot.id" style="display:flex; justify-content: space-between">
+      <span>{{plot.label}}</span>
+      <span>{{plot.plot.type}}</span>
+    </label>
   </li>
 </ul>
 

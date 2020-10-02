@@ -84,7 +84,6 @@ function Service(){
   };
 
   this.showPlot = async function(plot){
-    plot.show = true;
     const id = plot.id;
     const type = plot.plot.type;
     if (type === 'pie') {
@@ -96,14 +95,16 @@ function Service(){
         if (plot.plot.type === 'pie')  plot.show = false
       })
     }
+    await this.getChartsAndEmit();
+  };
+
+  this.getChartsAndEmit = async function(){
     const charts = await this.getCharts();
     this.emit('change-charts', charts);
   };
 
-  this.hidePlot = async function(plot){
-    plot.show = false;
-    const charts = await this.getCharts();
-    this.emit('change-charts', charts);
+  this.hidePlot = async function(){
+   await this.getChartsAndEmit();
   };
 
   this.getPlots = function(){
@@ -114,26 +115,25 @@ function Service(){
     this.loadedplots = {}
   };
 
-  this.getCharts = function(){
-    GUI.setLoadingContent(true);
+  this.getCharts = async function(){
     this.state.loading = true;
-    return new Promise((resolve, reject) => {
+    await GUI.setLoadingContent(true);
+    const promise =  new Promise((resolve, reject) => {
       const charts = {
         data:[],
         layout:[]
       };
       const promises = [];
-      //get anly plot show
       const plots =  this.config.plots.filter(plot => plot.show);
       if (Promise.allSettled) {
        plots.forEach(plot => {
          const promise = this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({url: `${BASEQPLOTLYAPIURL}/${plot.id}`});
          promises.push(promise)
         });
-        Promise.allSettled(promises).then(async promisesData=>{
-          promisesData.forEach((promise, index) =>{
-            if (promise.status === 'fulfilled') {
-              if (promise.value.result) {
+        Promise.allSettled(promises)
+          .then(async promisesData=>{
+            promisesData.forEach((promise, index) =>{
+              if (promise.status === 'fulfilled' && promise.value.result) {
                 const data = promise.value.data;
                 const plot = plots[index];
                 this.loadedplots[plot.id] = {
@@ -143,13 +143,9 @@ function Service(){
                 charts.data.push(data[0]) ;
                 charts.layout.push(plot.plot.layout)
               }
-            }
-          });
-          resolve(charts);
-        }).finally(()=>{
-          GUI.setLoadingContent(false);
-          this.state.loading = false;
-        })
+            });
+            resolve(charts);
+          })
       } else {
         plots.forEach( async (plot, index) => {
           try {
@@ -159,10 +155,16 @@ function Service(){
           } catch(err){}
         });
         resolve(charts);
-        GUI.setLoadingContent(false);
-        this.state.loading = false;
       }
-    })
+    });
+    try {
+      await promise;
+    } catch (e) {
+    } finally {
+      await GUI.setLoadingContent(false);
+      this.state.loading = false;
+    }
+    return promise;
   };
 
   this.getChartLayout = function (id) {

@@ -21,9 +21,10 @@ export default function MultiPlot({service}={}){
       }
     },
     methods:{
-      addRemovePlot(evt, plot){
-        evt.target.checked ? service.showPlot(plot) : service.hidePlot(plot);
-        this.disabled = true;
+      addRemovePlot(plot){
+        setTimeout(()=>{
+          service[plot.show && 'showPlot' || 'hidePlot'](plot);
+        })
       }
     },
     created() {

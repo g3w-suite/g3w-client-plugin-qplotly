@@ -90,8 +90,8 @@
         this.plotly_div.on('plotly_click', function(data){
           var featureIds = [];
           var dd = {};
-          dd["fidd"] = data.points[0].id
-          dd["mode"] = 'clicking'
+          dd["fidd"] = data.points[0].id;
+          dd["mode"] = 'clicking';
           // loop and create dctionary depending on plot type
           for(var i=0; i < data.points.length; i++){
             // scatter plot

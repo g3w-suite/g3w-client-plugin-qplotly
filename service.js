@@ -1,3 +1,4 @@
+import { charts as chartsConfig } from './config/app'
 import MultiPlot from './components/sidebar/multiplot';
 const { base, inherit, XHR ,debounce} =  g3wsdk.core.utils;
 const GUI = g3wsdk.gui.GUI;
@@ -5,6 +6,7 @@ const ComponentsFactory = g3wsdk.gui.ComponentsFactory;
 const PluginService = g3wsdk.core.plugin.PluginService;
 const QPlotlyComponent = require('./components/content/qplotly');
 let BASEQPLOTLYAPIURL = '/qplotly/api/trace';
+
 
 function Service(){
   base(this);
@@ -86,13 +88,13 @@ function Service(){
   this.showPlot = async function(plot){
     const id = plot.id;
     const type = plot.plot.type;
-    if (type === 'pie') {
+    if (chartsConfig.no_subplots.indexOf(type) !== -1) {
       this.config.plots.forEach(plot => {
         if (plot.id !== id)  plot.show = false
       })
     } else {
       this.config.plots.forEach(plot => {
-        if (plot.plot.type === 'pie')  plot.show = false
+        if (chartsConfig.no_subplots.indexOf(plot.plot.type) !== -1)  plot.show = false
       })
     }
     await this.getChartsAndEmit();

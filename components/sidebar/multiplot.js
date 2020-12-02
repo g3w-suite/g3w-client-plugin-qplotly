@@ -1,3 +1,4 @@
+import {charts} from '../../config/app';
 const template = require('./multiplot.html');
 
 export default function MultiPlot({service}={}){
@@ -13,16 +14,15 @@ export default function MultiPlot({service}={}){
       disabled(){
         return service.state.loading;
       },
-      pieplots(){
-        return this.plots.filter(plot => plot.plot.type === 'pie');
+      notsubplots(){
+        return this.plots.filter(plot => charts.no_subplots.indexOf(plot.plot.type) !== -1);
       },
       subplots(){
-        return this.plots.filter(plot => plot.plot.type !== 'pie');
+        return this.plots.filter(plot => charts.no_subplots.indexOf(plot.plot.type) === -1);
       }
     },
     methods:{
       addRemovePlot(plot){
-        plot.show = !plot.show;
         setTimeout(()=>{
           service[plot.show && 'showPlot' || 'hidePlot'](plot);
         })

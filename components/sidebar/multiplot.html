@@ -1,14 +1,14 @@
 <ul id="chart_plot_multi_plot" class="treeview-menu" style="padding: 10px;color:#FFFFFF">
-  <li v-if="pieplots.length" style="padding: 3px; margin-bottom: 5px; display: flex; background-color: #FFFFFF; justify-content: center; font-weight: bold">
-    <span class="skin-color" v-t-plugin="'qplotly.pietitle'"></span>
+  <li v-if="notsubplots.length" style="padding: 3px; margin-bottom: 5px; display: flex; background-color: #FFFFFF; justify-content: center; font-weight: bold">
+    <span class="skin-color" v-t-plugin="'qplotly.no_subplots_charts'"></span>
   </li>
-  <li v-for="plot in pieplots" :key="plot.id">
-    <input type="radio" :id="plot.id" class="magic-radio" :checked="plot.show" @change="addRemovePlot(plot)" :disabled="disabled">
+  <li v-for="plot in notsubplots" :key="plot.id">
+    <input type="radio" :id="plot.id" class="magic-radio" :value="true" v-model="plot.show" @change="addRemovePlot(plot)" :disabled="disabled">
     <label :for="plot.id">{{plot.label}}</label>
   </li>
-  <div v-if="subplots.length && pieplots.length" style="border-bottom: 2px solid; margin-top: 10px; margin-bottom: 10px;" class="skin-border-color"></div>
+  <div v-if="subplots.length && notsubplots.length" style="border-bottom: 2px solid; margin-top: 10px; margin-bottom: 10px;" class="skin-border-color"></div>
   <li v-for="plot in subplots" :key="plot.id">
-    <input type="checkbox" :id="plot.id" class="magic-checkbox" :checked="plot.show" @change="addRemovePlot(plot)" :disabled="disabled">
+    <input type="checkbox" :id="plot.id" class="magic-checkbox" v-model="plot.show" @change="addRemovePlot(plot)" :disabled="disabled">
     <label :for="plot.id" style="display:flex; justify-content: space-between">
       <span>{{plot.label}}</span>
       <span>{{plot.plot.type}}</span>

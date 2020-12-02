@@ -22,7 +22,6 @@ export default function MultiPlot({service}={}){
     },
     methods:{
       addRemovePlot(plot){
-        plot.show = !plot.show;
         setTimeout(()=>{
           service[plot.show && 'showPlot' || 'hidePlot'](plot);
         })

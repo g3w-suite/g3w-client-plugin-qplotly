@@ -1,6 +1,7 @@
 <template>
-  <div id="wrap-charts" style="height: 100%; position:relative;" :style="{overflowY: overflowY}">
-    <div id="qplotly_div" v-if="show" style="width: 100%;" :style="{height: `${height}%`}"></div>
+  <div class="wrap-charts" style="height: 100%; position:relative;margin:3px 0 3px 0;" :style="{overflowY: overflowY}" >
+    <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
+    <div v-if="show" ref="plot_div" style="width: 100%;" :style="{height: `${height}%`}"></div>
     <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
       <h4 style="font-weight: bold;" v-t-plugin="'qplotly.no_plots'"></h4>
     </div>
@@ -15,7 +16,9 @@
     name: "qplotly",
     mixins: [resizeMixin],
     data(){
+      this.wrapped = !!this.$options.ids;
       return {
+        state: this.$options.service.state,
         show: true,
         overflowY: 'none',
         height: 100
@@ -23,7 +26,9 @@
     },
     methods: {
       resize(){
-        this.plotly_div && Plotly.Plots.resize(this.plotly_div)
+        try {
+          this.plotly_div && Plotly.Plots.resize(this.plotly_div)
+        } catch (e) {}
       },
       async handleDataLayout({charts={}}={}){
         const config = this.$options.service.getChartConfig();
@@ -51,7 +56,7 @@
                 roworder: 'top to bottom'}
             };
           } else temp_layout = charts.layout[0];
-          this.plotly_div = document.getElementById('qplotly_div');
+          this.plotly_div = this.$refs.plot_div;
           Plotly.newPlot(this.plotly_div, charts.data, temp_layout , config);
         }
       }
@@ -67,7 +72,7 @@
         })
       };
       this.$options.service.on('change-charts', this.getCharts);
-      const charts = await this.$options.service.getCharts();
+      const charts = await this.$options.service.getCharts(this.$options.ids);
       this.show = charts.data.length > 0;
       if (this.show) {
         await this.handleDataLayout({
@@ -168,7 +173,7 @@
     beforeDestroy() {
       this.$options.service.off('change-charts', this.getCharts);
       this.$options.service.clearLoadedPlots();
-      Plotly.purge(this.plotly_div);
+      this.plotly_div && Plotly.purge(this.plotly_div);
       this.plotly_div = null;
     }
   }

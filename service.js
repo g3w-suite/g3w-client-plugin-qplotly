@@ -18,14 +18,41 @@ function Service(){
   });
   this.init = function(config={}){
    this.config = config;
+   const layersId = new Set();
+   this.chartContainers = [];
    this.config.plots.forEach((plot, index)=>{
      plot.show = index === 0;
      plot.label = plot.plot.layout.title ||  `Plot id [${plot.id}]`;
+     layersId.add(plot.qgs_layer_id);
    });
    BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;
    this.loadscripts();
+   const queryResultService = GUI.getComponent('queryresults').getService();
+   this.showChartsOnContainer = (ids, container) => {
+     const find = this.chartContainers.find(queryresultcontainer => container.selector === queryresultcontainer.container.selector);
+     !find && this.chartContainers.push({
+       container,
+       component: null
+     });
+     this.showChart(!find, ids, container);
+   };
+
+   this.clearChartContainers = container => {
+     this.chartContainers = this.chartContainers.filter(queryResultsContainer =>  {
+       if (!container || (container.selector === queryResultsContainer.container.selector)) {
+           $(queryResultsContainer.component.$el).remove();
+           queryResultsContainer.component.$destroy();
+          return false
+         } else return true;
+     });
+   };
+
+   queryResultService.addLayersPlotIds([...layersId]);
+   queryResultService.on('show-chart', this.showChartsOnContainer);
+   queryResultService.on('hide-chart', this.clearChartContainers);
+   this.closeComponentKeyEevent = queryResultService.onafter('closeComponent', this.clearChartContainers)
   };
-  
+
   this.createSideBarComponent = function(){
     const vueComponentObject = MultiPlot({
       service : this
@@ -114,19 +141,20 @@ function Service(){
   };
 
   this.clearLoadedPlots = function () {
-    this.loadedplots = {}
+    this.loadedplots = {};
+
   };
 
-  this.getCharts = async function(){
+  this.getCharts = async function(ids){
     this.state.loading = true;
-    await GUI.setLoadingContent(true);
+    !ids && await GUI.setLoadingContent(true);
     const promise =  new Promise((resolve, reject) => {
       const charts = {
         data:[],
         layout:[]
       };
       const promises = [];
-      const plots =  this.config.plots.filter(plot => plot.show);
+      const plots =  ids ? this.config.plots.filter(plot => ids.indexOf(plot.qgs_layer_id) !== -1) :this.config.plots.filter(plot => plot.show);
       if (Promise.allSettled) {
        plots.forEach(plot => {
          const promise = this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({url: `${BASEQPLOTLYAPIURL}/${plot.id}`});
@@ -163,7 +191,7 @@ function Service(){
       await promise;
     } catch (e) {
     } finally {
-      await GUI.setLoadingContent(false);
+      !ids && await GUI.setLoadingContent(false);
       this.state.loading = false;
     }
     return promise;
@@ -177,23 +205,45 @@ function Service(){
     return this.config.plots[0].config;
   };
 
-  this.showChart = function(bool){
-    bool && setTimeout(()=>{
-      this.mapService.deactiveMapControls();
-      GUI.showContent({
-        closable: false,
-        title: 'plugins.qplotly.title',
-        content: new QPlotlyComponent({
-          service: this
-        }),
-        perc: 50
-      })
-    }, 300) || this.mapService.activeMapControl('query') || GUI.closeContent();
+  this.showChart = function(bool, ids, container){
+    if (bool) {
+      setTimeout(()=>{
+        this.mapService.deactiveMapControls();
+        const content =  new QPlotlyComponent({
+          service: this,
+          ids
+        });
+        if (container) {
+          const component = content.getInternalComponent();
+          component.$once('hook:mounted', async function(){
+            container.append(this.$el);
+            GUI.emit('resize');
+          });
+          component.$mount();
+          this.chartContainers.find(queryResultsContainer => container.selector === queryResultsContainer.container.selector).component = component;
+        } else
+          GUI.showContent({
+            closable: false,
+            title: 'plugins.qplotly.title',
+            content,
+            perc: 50
+          })
+      }, 300)
+    } else {
+      if (container)
+        this.clearChartContainers(container);
+      else this.mapService.activeMapControl('query') || GUI.closeContent();
+    }
   };
 
   this.clear = function(){
     this.emit('clear');
     this.mapService = null;
+    this.chartContainers = [];
+    const queryResultService = GUI.getComponent('queryresults').getService();
+    queryResultService.removeListener('show-charts', this.showChartsOnContainer);
+    queryResultService.un('closeComponent', this.closeComponentKeyEevent);
+    this.closeComponentKeyEevent = null;
     GUI.closeContent();
   };
 }

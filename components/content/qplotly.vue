@@ -1,5 +1,5 @@
 <template>
-  <div class="wrap-charts" style="height: 100%; position:relative;margin:3px 0 3px 0;" :style="{overflowY: overflowY}" >
+  <div class="wrap-charts" style="height: 100%; position:relative;" :style="{overflowY: overflowY}" >
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" ref="plot_div" style="width: 100%;" :style="{height: `${height}%`}"></div>
     <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
@@ -27,7 +27,7 @@
     methods: {
       resize(){
         try {
-          this.plotly_div && Plotly.Plots.resize(this.plotly_div)
+          this.plotly_div && Plotly.Plots.resize(this.plotly_div) && Plotly.Plots.react()
         } catch (e) {}
       },
       async handleDataLayout({charts={}}={}){
@@ -52,6 +52,7 @@
               grid: {
                 rows: dataLength,
                 columns: 1,
+                ygap: this.wrapped ? 0.5 : 0.3,
                 pattern: 'independent',
                 roworder: 'top to bottom'}
             };
@@ -87,8 +88,8 @@
           data.points.forEach(function(pt){
             featureIds.push(parseInt(pt.id));
             featureIdsTernary.push(parseInt(pt.pointNumber));
-            dds["id"] = featureIds
-            dds["tid"] = featureIdsTernary
+            dds["id"] = featureIds;
+            dds["tid"] = featureIdsTernary;
           });
           window.status = JSON.stringify(dds)
         });

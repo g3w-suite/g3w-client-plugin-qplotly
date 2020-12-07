@@ -23,6 +23,10 @@ function Service(){
    this.config.plots.forEach((plot, index)=>{
      plot.show = index === 0;
      plot.label = plot.plot.layout.title ||  `Plot id [${plot.id}]`;
+     // set automargin
+     plot.plot.layout.xaxis.automargin = true;
+     plot.plot.layout.yaxis.automargin = true;
+     //end automargin
      layersId.add(plot.qgs_layer_id);
    });
    BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;

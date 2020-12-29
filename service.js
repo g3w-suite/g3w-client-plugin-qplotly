@@ -212,7 +212,7 @@ function Service(){
   this.showChart = function(bool, ids, container){
     if (bool) {
       setTimeout(()=>{
-        this.mapService.deactiveMapControls();
+        //this.mapService.deactiveMapControls();
         const content =  new QPlotlyComponent({
           service: this,
           ids
@@ -231,7 +231,7 @@ function Service(){
             title: 'plugins.qplotly.title',
             content,
             perc: 50
-          })
+          });
       }, 300)
     } else {
       if (container)

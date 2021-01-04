@@ -212,7 +212,6 @@ function Service(){
   this.showChart = function(bool, ids, container){
     if (bool) {
       setTimeout(()=>{
-        //this.mapService.deactiveMapControls();
         const content =  new QPlotlyComponent({
           service: this,
           ids
@@ -225,13 +224,15 @@ function Service(){
           });
           component.$mount();
           this.chartContainers.find(queryResultsContainer => container.selector === queryResultsContainer.container.selector).component = component;
-        } else
+        } else {
+          this.mapService.deactiveMapControls();
           GUI.showContent({
             closable: false,
             title: 'plugins.qplotly.title',
             content,
             perc: 50
           });
+        }
       }, 300)
     } else {
       if (container)

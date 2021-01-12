@@ -2,6 +2,7 @@ import { charts as chartsConfig } from './config/app'
 import MultiPlot from './components/sidebar/multiplot';
 const { base, inherit, XHR ,debounce} =  g3wsdk.core.utils;
 const GUI = g3wsdk.gui.GUI;
+const ApplicationState = g3wsdk.core.ApplicationState;
 const ComponentsFactory = g3wsdk.gui.ComponentsFactory;
 const PluginService = g3wsdk.core.plugin.PluginService;
 const QPlotlyComponent = require('./components/content/qplotly');
@@ -32,13 +33,13 @@ function Service(){
    BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;
    this.loadscripts();
    const queryResultService = GUI.getComponent('queryresults').getService();
-   this.showChartsOnContainer = (ids, container) => {
+   this.showChartsOnContainer = (ids, container, relationData) => {
      const find = this.chartContainers.find(queryresultcontainer => container.selector === queryresultcontainer.container.selector);
      !find && this.chartContainers.push({
        container,
        component: null
      });
-     this.showChart(!find, ids, container);
+     this.showChart(!find, ids, container, relationData);
    };
 
    this.clearChartContainers = container => {
@@ -149,7 +150,7 @@ function Service(){
 
   };
 
-  this.getCharts = async function(ids){
+  this.getCharts = async function(ids, relationData){
     this.state.loading = true;
     !ids && await GUI.setLoadingContent(true);
     const promise =  new Promise((resolve, reject) => {
@@ -161,7 +162,13 @@ function Service(){
       const plots =  ids ? this.config.plots.filter(plot => ids.indexOf(plot.qgs_layer_id) !== -1) :this.config.plots.filter(plot => plot.show);
       if (Promise.allSettled) {
        plots.forEach(plot => {
-         const promise = this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({url: `${BASEQPLOTLYAPIURL}/${plot.id}`});
+         const promise = this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
+           url: `${BASEQPLOTLYAPIURL}/${plot.id}`,
+           params: {
+             filtertoken: ApplicationState.tokens.filtertoken || undefined,
+             relationonetomany: relationData ? `${relationData.relations[0].id}|${relationData.fid}` : undefined
+           }
+         });
          promises.push(promise)
         });
         Promise.allSettled(promises)
@@ -183,7 +190,12 @@ function Service(){
       } else {
         plots.forEach( async (plot, index) => {
           try {
-            const response = await XHR.get({url: `${BASEQPLOTLYAPIURL}/${plot.id}`});
+            const response = await XHR.get({
+              url: `${BASEQPLOTLYAPIURL}/${plot.id}`,
+              params: {
+                filtertoken: ApplicationState.tokens.filtertoken
+              }
+            });
             response.result && charts.data.push(response.data);
             charts.layout.push(plots[index].layout)
           } catch(err){}
@@ -209,12 +221,13 @@ function Service(){
     return this.config.plots[0].config;
   };
 
-  this.showChart = function(bool, ids, container){
+  this.showChart = function(bool, ids, container, relationData){
     if (bool) {
       setTimeout(()=>{
         const content =  new QPlotlyComponent({
           service: this,
-          ids
+          ids,
+          relationData
         });
         if (container) {
           const component = content.getInternalComponent();

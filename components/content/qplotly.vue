@@ -1,7 +1,11 @@
 <template>
-  <div class="wrap-charts" style="height: 100%; position:relative;" :style="{overflowY: overflowY}" >
+  <div class="wrap-charts" style="height: 100%; position:relative;" :style="{overflowY: overflowY}">
+    <div v-show="false" style="display: flex; padding: 1px;">
+      <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="g3wtemplate.getFontClass('map')"  v-t-tooltip.create="'layer_selection_filter.tools.clear'" ></div>
+      <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('success'), false ? 'g3w-disabled': '']" v-t-tooltip.create="'layer_selection_filter.tools.invert'"></div>
+    </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
-    <div v-if="show" ref="plot_div" style="width: 100%;" :style="{height: `${height}%`}"></div>
+    <div v-if="show" ref="plot_div" style="width: 100%; margin-bottom: 30px;" :style="{height: `${height}%`}"></div>
     <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
       <h4 style="font-weight: bold;" v-t-plugin="'qplotly.no_plots'"></h4>
     </div>
@@ -17,6 +21,7 @@
     mixins: [resizeMixin],
     data(){
       this.wrapped = !!this.$options.ids;
+      this.relationData = this.$options.relationData;
       return {
         state: this.$options.service.state,
         show: true,
@@ -27,7 +32,7 @@
     methods: {
       resize(){
         try {
-          this.plotly_div && Plotly.Plots.resize(this.plotly_div) && Plotly.Plots.react()
+          this.plotly_div && Plotly.Plots.resize(this.plotly_div) && Plotly.Plots.react();
         } catch (e) {}
       },
       async handleDataLayout({charts={}}={}){
@@ -73,7 +78,7 @@
         })
       };
       this.$options.service.on('change-charts', this.getCharts);
-      const charts = await this.$options.service.getCharts(this.$options.ids);
+      const charts = await this.$options.service.getCharts(this.$options.ids, this.relationData);
       this.show = charts.data.length > 0;
       if (this.show) {
         await this.handleDataLayout({

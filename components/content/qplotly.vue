@@ -1,6 +1,6 @@
 <template>
-  <div class="wrap-charts" style="height: 100%; position:relative;" :style="{overflowY: overflowY}">
-    <div v-show="state.geolayer && !relationData" style="display: flex; padding: 1px;">
+  <div class="wrap-charts" style="position:relative;" :style="{overflowY: overflowY, paddingBottom: showtools ? '30px': '', height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
+    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 1px;">
       <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled-white' : '']" @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></div>
 <!--      <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('success'), false ? 'g3w-disabled': '']" v-t-tooltip.create="'layer_selection_filter.tools.invert'"></div>-->
     </div>
@@ -27,6 +27,11 @@
         show: true,
         overflowY: 'none',
         height: 100,
+      }
+    },
+    computed:{
+      showtools(){
+        return this.state.geolayer && !this.relationData;
       }
     },
     methods: {
@@ -177,10 +182,12 @@
             }
           }
         });
+        this.relationData && GUI.on('pop-content', this.resize)
       }
     },
     beforeDestroy() {
       this.$options.service.off('change-charts', this.getCharts);
+      this.relationData && GUI.off('pop-content', this.resize);
       this.$options.service.clearLoadedPlots();
       this.plotly_div && Plotly.purge(this.plotly_div);
       this.plotly_div = null;

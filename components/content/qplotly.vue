@@ -1,8 +1,8 @@
 <template>
   <div class="wrap-charts" style="height: 100%; position:relative;" :style="{overflowY: overflowY}">
-    <div v-show="false" style="display: flex; padding: 1px;">
-      <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="g3wtemplate.getFontClass('map')"  v-t-tooltip.create="'layer_selection_filter.tools.clear'" ></div>
-      <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('success'), false ? 'g3w-disabled': '']" v-t-tooltip.create="'layer_selection_filter.tools.invert'"></div>
+    <div v-show="state.geolayer && !relationData" style="display: flex; padding: 1px;">
+      <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled-white' : '']" @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></div>
+<!--      <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('success'), false ? 'g3w-disabled': '']" v-t-tooltip.create="'layer_selection_filter.tools.invert'"></div>-->
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" ref="plot_div" style="width: 100%; margin-bottom: 30px;" :style="{height: `${height}%`}"></div>
@@ -26,7 +26,7 @@
         state: this.$options.service.state,
         show: true,
         overflowY: 'none',
-        height: 100
+        height: 100,
       }
     },
     methods: {
@@ -65,6 +65,9 @@
           this.plotly_div = this.$refs.plot_div;
           Plotly.newPlot(this.plotly_div, charts.data, temp_layout , config);
         }
+      },
+      showMapFeaturesCharts(){
+        this.$options.service.showMapFeaturesCharts();
       }
     },
     beforeCreate(){

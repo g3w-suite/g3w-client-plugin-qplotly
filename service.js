@@ -5,9 +5,9 @@ const GUI = g3wsdk.gui.GUI;
 const ApplicationState = g3wsdk.core.ApplicationState;
 const ComponentsFactory = g3wsdk.gui.ComponentsFactory;
 const PluginService = g3wsdk.core.plugin.PluginService;
+const CatalogLayersStoresRegistry = g3wsdk.core.catalog.CatalogLayersStoresRegistry;
 const QPlotlyComponent = require('./components/content/qplotly');
 let BASEQPLOTLYAPIURL = '/qplotly/api/trace';
-
 
 function Service(){
   base(this);
@@ -15,8 +15,19 @@ function Service(){
   this.loadedplots = {};
   this.loading = false;
   this.state = Vue.observable({
-    loading: false
+    loading: false,
+    geolayer: false,
+    tools: {
+      map: {
+        toggled: false
+      }
+    }
   });
+  this.reloaddata = false;
+  this.relationData = null;
+  this.customParams = {
+    bbox: undefined
+  };
   this.init = function(config={}){
    this.config = config;
    const layersId = new Set();
@@ -29,6 +40,19 @@ function Service(){
      plot.plot.layout.yaxis.automargin = true;
      //end automargin
      layersId.add(plot.qgs_layer_id);
+   });
+   this.changeChartsEventHandler = async () =>{
+     this.reloaddata = true;
+     this.setBBoxParameter();
+     try {
+       await this.getChartsAndEmit();
+     } catch(e){}
+     this.reloaddata = false;
+   };
+   // listen layer change filter to reload the charts
+   layersId.forEach(layerId => {
+     const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
+     layer.on('filtertokenchange', this.changeChartsEventHandler)
    });
    BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;
    this.loadscripts();
@@ -147,10 +171,33 @@ function Service(){
 
   this.clearLoadedPlots = function () {
     this.loadedplots = {};
-
+    this.state.tools.map.toggled = false;
+    this.customParams.bbox = undefined;
+    this.mapService.getMap().un('moveend', this.changeChartsEventHandler);
   };
 
+  this.setBBoxParameter = function(){
+    this.customParams.bbox = this.state.tools.map.toggled ? this.mapService.getMapBBOX().toString() : undefined;
+  };
+
+  this.showMapFeaturesCharts = async function(){
+    this.reloaddata = true;
+    this.state.tools.map.toggled = !this.state.tools.map.toggled;
+    this.setBBoxParameter();
+    this.state.tools.map.toggled ?
+      this.mapService.getMap().on('moveend', this.changeChartsEventHandler) :
+      this.mapService.getMap().un('moveend', this.changeChartsEventHandler);
+    try {
+      const charts = await this.getCharts();
+      this.emit('change-charts', charts);
+    } catch(e){}
+    this.reloaddata = false;
+  };
+
+
+
   this.getCharts = async function(ids, relationData){
+    this.relationData = this.reloaddata ? this.relationData : relationData;
     this.state.loading = true;
     !ids && await GUI.setLoadingContent(true);
     const promise =  new Promise((resolve, reject) => {
@@ -160,13 +207,20 @@ function Service(){
       };
       const promises = [];
       const plots =  ids ? this.config.plots.filter(plot => ids.indexOf(plot.qgs_layer_id) !== -1) :this.config.plots.filter(plot => plot.show);
+      // set geo layer show or not
+      this.state.geolayer = !!plots.find(plot => {
+        const layer = CatalogLayersStoresRegistry.getLayerById(plot.qgs_layer_id);
+        return layer.isGeoLayer();
+      });
+
       if (Promise.allSettled) {
        plots.forEach(plot => {
-         const promise = this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
+         const promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
            url: `${BASEQPLOTLYAPIURL}/${plot.id}`,
            params: {
              filtertoken: ApplicationState.tokens.filtertoken || undefined,
-             relationonetomany: relationData ? `${relationData.relations[0].id}|${relationData.fid}` : undefined
+             relationonetomany: this.relationData ? `${this.relationData.relations[0].id}|${this.relationData.fid}` : undefined,
+             in_bbox : this.customParams.bbox
            }
          });
          promises.push(promise)
@@ -193,7 +247,9 @@ function Service(){
             const response = await XHR.get({
               url: `${BASEQPLOTLYAPIURL}/${plot.id}`,
               params: {
-                filtertoken: ApplicationState.tokens.filtertoken
+                filtertoken: ApplicationState.tokens.filtertoken || undefined,
+                relationonetomany: this.relationData ? `${this.relationData.relations[0].id}|${this.relationData.fid}` : undefined,
+                in_bbox : this.customParams.bbox
               }
             });
             response.result && charts.data.push(response.data);
@@ -256,6 +312,11 @@ function Service(){
 
   this.clear = function(){
     this.emit('clear');
+    // listen layer change filter to reload the charts
+    layersId.forEach(layerId => {
+      const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
+      layer.off('filtertokenchange', this.changeChartWhenFilterChange)
+    });
     this.mapService = null;
     this.chartContainers = [];
     const queryResultService = GUI.getComponent('queryresults').getService();

@@ -1,11 +1,12 @@
 <template>
-  <div class="wrap-charts" style="position:relative;" :style="{overflowY: overflowY, paddingBottom: showtools ? '30px': '', height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
-    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 1px;">
-      <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled-white' : '']" @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></div>
-<!--      <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('success'), false ? 'g3w-disabled': '']" v-t-tooltip.create="'layer_selection_filter.tools.invert'"></div>-->
+  <div :id="id" style="position:relative;" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
+    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 1px; position: fixed; z-index: 5;">
+      <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']" @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></div>
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
-    <div v-if="show" ref="plot_div" style="width: 100%; margin-bottom: 30px;" :style="{height: `${height}%`}"></div>
+    <div v-if="show" class="plot_div_content" style="width: 100%;" :style="{height: `${height}%`}">
+      <div v-for="plotly_div in plotly_divs" :ref="plotly_div" :style="{height: `${100/plotly_divs.length}%`}"></div>
+    </div>
     <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
       <h4 style="font-weight: bold;" v-t-plugin="'qplotly.no_plots'"></h4>
     </div>
@@ -14,12 +15,13 @@
 
 <script>
   const GUI = g3wsdk.gui.GUI;
-  const {resizeMixin} = g3wsdk.gui.vue.Mixins;
   const {getUniqueDomId} = g3wsdk.core.utils;
+  const {resizeMixin} = g3wsdk.gui.vue.Mixins;
   export default {
     name: "qplotly",
     mixins: [resizeMixin],
     data(){
+      this.id = getUniqueDomId();
       this.wrapped = !!this.$options.ids;
       this.relationData = this.$options.relationData;
       return {
@@ -27,6 +29,7 @@
         show: true,
         overflowY: 'none',
         height: 100,
+        plotly_divs: []
       }
     },
     computed:{
@@ -37,39 +40,46 @@
     methods: {
       resize(){
         try {
-          this.plotly_div && Plotly.Plots.resize(this.plotly_div) && Plotly.Plots.react();
+          this.plotly_divs.forEach(plot_div =>{
+            const content_div = this.$refs[plot_div][0];
+            Plotly.Plots.resize(content_div);
+          });
+          Plotly.Plots.react();
         } catch (e) {}
       },
+      clearPlotlyDivs(){
+        this.plotly_divs.forEach(plot_div =>{
+          const content_div = this.$refs[plot_div][0];
+          Plotly.purge(content_div)
+        });
+        this.plotly_divs.splice(0);
+      },
       async handleDataLayout({charts={}}={}){
+        this.show = false;
+        this.clearPlotlyDivs();
+        await this.$nextTick();
         const config = this.$options.service.getChartConfig();
-        let temp_layout;
         const dataLength = charts.data.length;
         this.height = 100 + (dataLength > 2 ? dataLength - 2 : 0) * 50;
         this.overflowY = dataLength > 2 ? 'auto' : 'none';
         this.show = dataLength > 0;
-        !this.show && this.plotly_div && Plotly.purge(this.plotly_div);
         await this.$nextTick();
         if (dataLength > 0) {
-          const first_chart = charts.data[0];
-          delete first_chart["xaxis"];
-          delete first_chart["yaxis"];
-          if (dataLength > 1) {
-            for (let i = 1; i < dataLength; i++) {
-              charts.data[i]["xaxis"] = `x${i+1}`;
-              charts.data[i]["yaxis"] = `y${i+1}`;
-            }
-            temp_layout = {
-              grid: {
-                rows: dataLength,
-                columns: 1,
-                ygap: this.wrapped ? 0.5 : 0.3,
-                pattern: 'independent',
-                roworder: 'top to bottom'}
+          for (let i=0; i < dataLength; i++){
+            this.plotly_divs.push(`plot_div_${i}`)
+          }
+          await this.$nextTick();
+          for (let i = 0; i < dataLength; i++) {
+            const content_div = this.$refs[this.plotly_divs[i]][0];
+            const data = [charts.data[i]];
+            const layout = charts.layout[i];
+            layout.margin ={
+              t: layout.title.text ? 30 : 10
             };
-          } else temp_layout = charts.layout[0];
-          this.plotly_div = this.$refs.plot_div;
-          Plotly.newPlot(this.plotly_div, charts.data, temp_layout , config);
+            Plotly.newPlot(content_div, data , layout, config);
+          }
         }
+
       },
       showMapFeaturesCharts(){
         this.$options.service.showMapFeaturesCharts();
@@ -92,96 +102,6 @@
         await this.handleDataLayout({
           charts
         });
-        this.plotly_div.on('plotly_selected', function(data){
-          var dds = {};
-          dds["mode"] = 'selection';
-          dds["type"] = data.points[0].data.type;
-          featureIds = [];
-          featureIdsTernary = [];
-          data.points.forEach(function(pt){
-            featureIds.push(parseInt(pt.id));
-            featureIdsTernary.push(parseInt(pt.pointNumber));
-            dds["id"] = featureIds;
-            dds["tid"] = featureIdsTernary;
-          });
-          window.status = JSON.stringify(dds)
-        });
-        this.plotly_div.on('plotly_click', function(data){
-          var featureIds = [];
-          var dd = {};
-          dd["fidd"] = data.points[0].id;
-          dd["mode"] = 'clicking';
-          // loop and create dctionary depending on plot type
-          for(var i=0; i < data.points.length; i++){
-            // scatter plot
-            if(data.points[i].data.type == 'scatter'){
-              dd["uid"] = data.points[i].data.uid
-              dd["type"] = data.points[i].data.type
-              data.points.forEach(function(pt){
-                dd["fid"] = pt.id
-              })
-            }
-
-            // pie
-            else if(data.points[i].data.type == 'pie'){
-              dd["type"] = data.points[i].data.type
-              dd["label"] = data.points[i].label
-              dd["field"] = data.points[i].data.name
-            }
-
-            // histogram
-            else if(data.points[i].data.type == 'histogram'){
-              dd["type"] = data.points[i].data.type
-              dd["uid"] = data.points[i].data.uid
-              dd["field"] = data.points[i].data.name
-              // correct axis orientation
-              if(data.points[i].data.orientation == 'v'){
-                dd["id"] = data.points[i].x
-                dd["bin_step"] = data.points[i].fullData.xbins.size
-              } else {
-                dd["id"] = data.points[i].y
-                dd["bin_step"] = data.points[i].fullData.ybins.size
-              }
-            } else if(data.points[i].data.type == 'box'){
-              dd["uid"] = data.points[i].data.uid
-              dd["type"] = data.points[i].data.type
-              dd["field"] = data.points[i].data.customdata[0]
-              // correct axis orientation
-              if(data.points[i].data.orientation == 'v'){
-                dd["id"] = data.points[i].x
-              } else {
-                dd["id"] = data.points[i].y
-              }
-            } else if(data.points[i].data.type == 'violin'){
-              dd["uid"] = data.points[i].data.uid
-              dd["type"] = data.points[i].data.type
-              dd["field"] = data.points[i].data.customdata[0]
-              // correct axis orientation (for violin is viceversa)
-              if(data.points[i].data.orientation == 'v'){
-                dd["id"] = data.points[i].x
-              } else {
-                dd["id"] = data.points[i].y
-              }
-            } else if(data.points[i].data.type == 'bar'){
-              dd["uid"] = data.points[i].data.uid
-              dd["type"] = data.points[i].data.type
-              dd["field"] = data.points[i].data.customdata[0]
-              // correct axis orientation
-              if(data.points[i].data.orientation == 'v'){
-                dd["id"] = data.points[i].x
-              } else {
-                dd["id"] = data.points[i].y
-              }
-            }
-            // ternary
-            else if(data.points[i].data.type == 'scatterternary'){
-              dd["uid"] = data.points[i].data.uid
-              dd["type"] = data.points[i].data.type
-              dd["field"] = data.points[i].data.customdata
-              dd["fid"] = data.points[i].pointNumber
-            }
-          }
-        });
         this.relationData && GUI.on('pop-content', this.resize)
       }
     },
@@ -189,8 +109,7 @@
       this.$options.service.off('change-charts', this.getCharts);
       this.relationData && GUI.off('pop-content', this.resize);
       this.$options.service.clearLoadedPlots();
-      this.plotly_div && Plotly.purge(this.plotly_div);
-      this.plotly_div = null;
+      this.clearPlotlyDivs();
     }
   }
 </script>

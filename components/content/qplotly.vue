@@ -60,8 +60,9 @@
         await this.$nextTick();
         const config = this.$options.service.getChartConfig();
         const dataLength = charts.data.length;
-        this.height = 100 + (dataLength > 2 ? dataLength - 2 : 0) * 50;
-        this.overflowY = dataLength > 2 ? 'auto' : 'none';
+        const addedHeight = ( this.relationData && this.relationData.height ? dataLength * 50 : (dataLength > 2 ? dataLength - 2 : 0) * 50 );
+        this.height = 100 + addedHeight;
+        this.overflowY = addedHeight > 0 ? 'auto' : 'none';
         this.show = dataLength > 0;
         await this.$nextTick();
         if (dataLength > 0) {
@@ -73,9 +74,6 @@
             const content_div = this.$refs[this.plotly_divs[i]][0];
             const data = [charts.data[i]];
             const layout = charts.layout[i];
-            layout.margin ={
-              t: layout.title.text ? 30 : 10
-            };
             Plotly.newPlot(content_div, data , layout, config);
           }
         }

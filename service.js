@@ -317,6 +317,11 @@ function Service(){
                 charts.data[rootindex] = data[0] ;
                 charts.layout[rootindex] = plot.plot.layout;
                 charts.plotIds[rootindex] = plot.id;
+              } else  {
+                const plot = plots[rootindex];
+                charts.data[rootindex] = null;
+                charts.plotIds[rootindex] = plot.id;
+                this.resetPlotDynamicValues(plot);
               }
             });
             !ids && await GUI.setLoadingContent(false);

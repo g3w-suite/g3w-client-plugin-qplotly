@@ -73,7 +73,7 @@
           await this.$nextTick();
           for (let i = 0; i < dataLength; i++) {
             const content_div = this.$refs[this.plotly_divs[i]][0];
-            if (charts.data[i] && charts.data[i].x.length) {
+            if (charts.data[i] && Array.isArray(charts.data[i].x) && charts.data[i].x.length) {
               const data = [charts.data[i]];
               const layout = charts.layout[i];
               Plotly.newPlot(content_div, data , layout, config);

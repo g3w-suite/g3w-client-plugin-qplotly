@@ -5,7 +5,7 @@
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" class="plot_div_content" style="width: 100%;" :style="{height: `${height}%`}">
-      <div v-for="plotly_div in plotly_divs" :ref="plotly_div" :style="{height: `${100/plotly_divs.length}%`}"></div>
+      <div v-for="plotly_div in plotly_divs" :ref="plotly_div" :style="{height: `${100/plotly_divs.length}%`}" style="background-color: #FFFFFF; display: flex; justify-content: center; align-items: center"></div>
     </div>
     <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
       <h4 style="font-weight: bold;" v-t-plugin="'qplotly.no_plots'"></h4>
@@ -14,6 +14,7 @@
 </template>
 
 <script>
+  const NoDataComponent = require('./nodata');
   const GUI = g3wsdk.gui.GUI;
   const {getUniqueDomId} = g3wsdk.core.utils;
   const {resizeMixin} = g3wsdk.gui.vue.Mixins;
@@ -72,9 +73,19 @@
           await this.$nextTick();
           for (let i = 0; i < dataLength; i++) {
             const content_div = this.$refs[this.plotly_divs[i]][0];
-            const data = [charts.data[i]];
-            const layout = charts.layout[i];
-            Plotly.newPlot(content_div, data , layout, config);
+            if (charts.data[i].x.length) {
+              const data = [charts.data[i]];
+              const layout = charts.layout[i];
+              Plotly.newPlot(content_div, data , layout, config);
+            } else {
+              let component = Vue.extend(NoDataComponent);
+              component = new component({
+                propsData: {
+                  id:charts.plotIds[i]
+                }
+              });
+              content_div.appendChild(component.$mount().$el)
+            }
           }
         }
 

@@ -26,6 +26,7 @@ function Service(){
   this.reloaddata = false;
   this.relationData = null;
   this._relations = {};
+  this._relationIdName = {};
   this.customParams = {
     bbox: undefined
   };
@@ -37,7 +38,7 @@ function Service(){
      plot.show = index === 0;
      plot.withrelations = null;
      plot.request = true;
-     plot.relationName = null;
+     plot.plot.layout._title = plot.plot.layout.title;
      plot.label = plot.plot.layout.title ||  `Plot id [${plot.id}]`;
      // set automargin
      plot.plot.layout.xaxis.automargin = true;
@@ -57,13 +58,13 @@ function Service(){
    layersId.forEach(layerId => {
      const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
      if (layer.isFather() && this._relations[layerId] === undefined){
-       const relations = []
+       const relations = [];
        layer.getRelations().getArray().forEach(relation =>{
          relation.getFather() === layerId && relations.push({
            id: relation.getId(),
-           name: relation.getName(),
            relationLayer: relation.getChild()
-         })
+         });
+         this._relationIdName[relation.getId()] = relation.getName();
        });
        this._relations[layerId] = relations;
      }
@@ -212,7 +213,6 @@ function Service(){
   this.resetPlotDynamicValues = function(plot){
     plot.withrelations = null;
     plot.request = true;
-    plot.relationName = null;
   };
 
   this.getCharts = async function(ids, relationData){
@@ -222,22 +222,25 @@ function Service(){
     return new Promise((resolve) => {
       const plots = ids ? this.config.plots.filter(plot => ids.indexOf(plot.qgs_layer_id) !== -1) : this.config.plots.filter(plot => plot.show);
       const charts = {
-        data: new Array(plots.length),
-        layout: new Array(plots.length)
+        data: [],
+        layout: [],
+        plotIds: []
       };
       // set plot id to show
       if (plots.length > 1) {
+        const layerwithrelations = []; // useful to save refence layerid arlarey used to ask relation chartts
         plots.forEach(plot => {
-          if (!plot.withrelations){
+          const children = layerwithrelations.indexOf(plot.qgs_layer_id) < 0 && this._relations[plot.qgs_layer_id];
+          if (children) {
             plot.withrelations = [];
-            const children = this._relations[plot.qgs_layer_id];
             children && children.forEach(({id, name,  relationLayer}) =>{
-              plot.withrelations.push(id);
-              plots.forEach(plot => {
-                plot.request = !(plot.qgs_layer_id === relationLayer);
-                plot.relationName = plot.request ? plot.relationName : name;
+              plots.forEach(_plot => {
+                _plot.request = !(_plot.qgs_layer_id === relationLayer);
+                !_plot.request && plot.withrelations.push(id);
               });
-            })
+            });
+            if (plot.withrelations.length === 0) plot.withrelations = null;
+            else layerwithrelations.push(plot.qgs_layer_id);
           }
         })
       }
@@ -251,6 +254,7 @@ function Service(){
         const promises = [];
         plots.forEach(plot => {
           let promise;
+          // in case of no request (relation)
           if (!plot.request) promise = Promise.resolve({
             result: true,
             relation:true
@@ -271,33 +275,48 @@ function Service(){
         });
         Promise.allSettled(promises)
           .then(async promisesData =>{
-            promisesData.forEach((promise, index) =>{
+            const alreadyusedindex = [];
+            promisesData.forEach((promise, rootindex) =>{
               if (promise.status === 'fulfilled' && promise.value.result) {
                 const {data, relation, relations} = promise.value;
-                if (relation) return;
+                if (relation) return; // in case of relation do nothing
                 if (relations) {
-                  Object.values(relations).forEach(relationdata=>{
+                  Object.keys(relations).forEach( relationId =>{
+                    const relationdata = relations[relationId];
                     relationdata.forEach(({id, data}) =>{
                       plots.find((plot, index) => {
                         if (plot.id === id){
-                          charts.data[index] = data[0];
+                          const foundIndex = alreadyusedindex.find(_index => _index.index === index)
+                          if (!foundIndex) alreadyusedindex.push({
+                            index, count:1
+                          });
+                          else {
+                            foundIndex.count+=1;
+                            rootindex = rootindex < index ? rootindex : rootindex + foundIndex.count;
+                          }
+                          const _index = foundIndex ? index+foundIndex.count : index;
                           const layout = plot.plot.layout;
-                          charts.layout[index] = layout;
+                          layout.title = `${this._relationIdName[relationId]} ${layout._title}`;
+                          charts.data[_index] = data[0];
+                          charts.layout[_index] = layout;
+                          charts.plotIds[_index] = plot.id;
                           this.resetPlotDynamicValues(plot);
                           return true;
                         }
                       });
                     })
-                  })
+                  });
                 }
-                const plot = plots[index];
+                const plot = plots[rootindex];
+                plot.plot.layout.title = plot.plot.layout._title;
                 this.resetPlotDynamicValues(plot);
                 /*this.loadedplots[plot.id] = {
                   result: true,
                   data
                 };*/
-                charts.data[index] = data[0] ;
-                charts.layout[index] = plot.plot.layout;
+                charts.data[rootindex] = data[0] ;
+                charts.layout[rootindex] = plot.plot.layout;
+                charts.plotIds[rootindex] = plot.id;
               }
             });
             !ids && await GUI.setLoadingContent(false);

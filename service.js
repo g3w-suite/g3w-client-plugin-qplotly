@@ -25,6 +25,7 @@ function Service(){
   });
   this.reloaddata = false;
   this.relationData = null;
+  this._relations = {};
   this.customParams = {
     bbox: undefined
   };
@@ -34,6 +35,9 @@ function Service(){
    this.chartContainers = [];
    this.config.plots.forEach((plot, index)=>{
      plot.show = index === 0;
+     plot.withrelations = null;
+     plot.request = true;
+     plot.relationName = null;
      plot.label = plot.plot.layout.title ||  `Plot id [${plot.id}]`;
      // set automargin
      plot.plot.layout.xaxis.automargin = true;
@@ -52,6 +56,17 @@ function Service(){
    // listen layer change filter to reload the charts
    layersId.forEach(layerId => {
      const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
+     if (layer.isFather() && this._relations[layerId] === undefined){
+       const relations = []
+       layer.getRelations().getArray().forEach(relation =>{
+         relation.getFather() === layerId && relations.push({
+           id: relation.getId(),
+           name: relation.getName(),
+           relationLayer: relation.getChild()
+         })
+       });
+       this._relations[layerId] = relations;
+     }
      layer.on('filtertokenchange', this.changeChartsEventHandler)
    });
    BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;
@@ -112,8 +127,8 @@ function Service(){
 
     GUI.addComponent(QPlotlySiderBarComponent, 'sidebar', options);
 
-    this.mapService.on('mapcontrol:active', ()=>{
-      if (QPlotlySiderBarComponent.getOpen()) {
+    this.mapService.onbefore('controlClick', ({target})=>{
+      if (target.name !== 'zoombox' && QPlotlySiderBarComponent.getOpen()) {
         QPlotlySiderBarComponent.click({
           open: false
         });
@@ -194,19 +209,38 @@ function Service(){
     this.reloaddata = false;
   };
 
-
+  this.resetPlotDynamicValues = function(plot){
+    plot.withrelations = null;
+    plot.request = true;
+    plot.relationName = null;
+  };
 
   this.getCharts = async function(ids, relationData){
     this.relationData = this.reloaddata ? this.relationData : relationData;
-    this.state.loading = true;
+    if (this.relationData) this.state.loading = true;
     !ids && await GUI.setLoadingContent(true);
-    const promise =  new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
+      const plots = ids ? this.config.plots.filter(plot => ids.indexOf(plot.qgs_layer_id) !== -1) : this.config.plots.filter(plot => plot.show);
       const charts = {
-        data:[],
-        layout:[]
+        data: new Array(plots.length),
+        layout: new Array(plots.length)
       };
-      const promises = [];
-      const plots =  ids ? this.config.plots.filter(plot => ids.indexOf(plot.qgs_layer_id) !== -1) :this.config.plots.filter(plot => plot.show);
+      // set plot id to show
+      if (plots.length > 1) {
+        plots.forEach(plot => {
+          if (!plot.withrelations){
+            plot.withrelations = [];
+            const children = this._relations[plot.qgs_layer_id];
+            children && children.forEach(({id, name,  relationLayer}) =>{
+              plot.withrelations.push(id);
+              plots.forEach(plot => {
+                plot.request = !(plot.qgs_layer_id === relationLayer);
+                plot.relationName = plot.request ? plot.relationName : name;
+              });
+            })
+          }
+        })
+      }
       // set geo layer show or not
       this.state.geolayer = !!plots.find(plot => {
         const layer = CatalogLayersStoresRegistry.getLayerById(plot.qgs_layer_id);
@@ -214,58 +248,64 @@ function Service(){
       });
 
       if (Promise.allSettled) {
-       plots.forEach(plot => {
-         const promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
-           url: `${BASEQPLOTLYAPIURL}/${plot.id}`,
-           params: {
-             filtertoken: ApplicationState.tokens.filtertoken || undefined,
-             relationonetomany: this.relationData ? `${this.relationData.relations[0].id}|${this.relationData.fid}` : undefined,
-             in_bbox : this.customParams.bbox
-           }
-         });
-         promises.push(promise)
-        });
-        Promise.allSettled(promises)
-          .then(async promisesData=>{
-            promisesData.forEach((promise, index) =>{
-              if (promise.status === 'fulfilled' && promise.value.result) {
-                const data = promise.value.data;
-                const plot = plots[index];
-                this.loadedplots[plot.id] = {
-                  result: true,
-                  data
-                };
-                charts.data.push(data[0]) ;
-                charts.layout.push(plot.plot.layout)
-              }
-            });
-            resolve(charts);
-          })
-      } else {
-        plots.forEach( async (plot, index) => {
-          try {
-            const response = await XHR.get({
+        const promises = [];
+        plots.forEach(plot => {
+          let promise;
+          if (!plot.request) promise = Promise.resolve({
+            result: true,
+            relation:true
+          });
+          else {
+            const withrelations = plot.withrelations && plot.withrelations.length ? plot.withrelations.join(',') : undefined;
+            promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
               url: `${BASEQPLOTLYAPIURL}/${plot.id}`,
               params: {
+                withrelations,
                 filtertoken: ApplicationState.tokens.filtertoken || undefined,
                 relationonetomany: this.relationData ? `${this.relationData.relations[0].id}|${this.relationData.fid}` : undefined,
                 in_bbox : this.customParams.bbox
               }
             });
-            response.result && charts.data.push(response.data);
-            charts.layout.push(plots[index].layout)
-          } catch(err){}
+          }
+          promises.push(promise);
         });
-        resolve(charts);
+        Promise.allSettled(promises)
+          .then(async promisesData =>{
+            promisesData.forEach((promise, index) =>{
+              if (promise.status === 'fulfilled' && promise.value.result) {
+                const {data, relation, relations} = promise.value;
+                if (relation) return;
+                if (relations) {
+                  Object.values(relations).forEach(relationdata=>{
+                    relationdata.forEach(({id, data}) =>{
+                      plots.find((plot, index) => {
+                        if (plot.id === id){
+                          charts.data[index] = data[0];
+                          const layout = plot.plot.layout;
+                          charts.layout[index] = layout;
+                          this.resetPlotDynamicValues(plot);
+                          return true;
+                        }
+                      });
+                    })
+                  })
+                }
+                const plot = plots[index];
+                this.resetPlotDynamicValues(plot);
+                /*this.loadedplots[plot.id] = {
+                  result: true,
+                  data
+                };*/
+                charts.data[index] = data[0] ;
+                charts.layout[index] = plot.plot.layout;
+              }
+            });
+            !ids && await GUI.setLoadingContent(false);
+            if (this.relationData) this.state.loading = false;
+            resolve(charts);
+          })
       }
     });
-    try {
-      await promise;
-    } catch (e) {
-    } finally {
-      !ids && await GUI.setLoadingContent(false);
-      this.state.loading = false;
-    }
     return promise;
   };
 
@@ -306,7 +346,7 @@ function Service(){
     } else {
       if (container)
         this.clearChartContainers(container);
-      else this.mapService.activeMapControl('query') || GUI.closeContent();
+      else GUI.closeContent();
     }
   };
 

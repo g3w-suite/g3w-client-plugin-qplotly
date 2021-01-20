@@ -1,7 +1,7 @@
 module.exports = {
   props:{
-    id: {
-      type: Number
+    title: {
+      type: String
     }
   },
   render(h){
@@ -13,7 +13,7 @@ module.exports = {
         class:{
           'skin-color':true
         }
-      },`Plot [${this.$props.id}]`),
+      },`${this.$props.title}`),
       h('div', {
         directives: [{
           name:'t-plugin',

@@ -1,11 +1,11 @@
 <template>
   <div :id="id" style="position:relative;" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
-    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 1px; position: fixed; z-index: 5;">
+    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 3px; position: fixed; z-index: 5;">
       <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']" @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></div>
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
-    <div v-if="show" class="plot_div_content" style="width: 100%;" :style="{height: `${height}%`}">
-      <div v-for="plotly_div in plotly_divs" :ref="plotly_div" :style="{height: `${100/plotly_divs.length}%`}" style="background-color: #FFFFFF; display: flex; justify-content: center; align-items: center"></div>
+    <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; display: flex; flex-direction: column; justify-content: space-evenly" :style="{height: `${height}%`}">
+      <div v-for="plotly_div in plotly_divs" class="plot_div_content" :ref="plotly_div" style="height: 100%; display: flex; justify-content: center; align-items: center"></div>
     </div>
     <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
       <h4 style="font-weight: bold;" v-t-plugin="'qplotly.no_plots'"></h4>
@@ -61,7 +61,7 @@
         await this.$nextTick();
         const config = this.$options.service.getChartConfig();
         const dataLength = charts.data.length;
-        const addedHeight = ( this.relationData && this.relationData.height ? dataLength * 50 : (dataLength > 2 ? dataLength - 2 : 0) * 50 );
+        const addedHeight = (this.relationData && this.relationData.height ? dataLength * 50 : (dataLength > 2 ? dataLength - 2 : 0) * 50 );
         this.height = 100 + addedHeight;
         this.overflowY = addedHeight > 0 ? 'auto' : 'none';
         this.show = dataLength > 0;
@@ -81,7 +81,7 @@
               let component = Vue.extend(NoDataComponent);
               component = new component({
                 propsData: {
-                  id:charts.plotIds[i]
+                  title: `Plot [${charts.plotIds[i]}] - ${charts.layout[i].title} `
                 }
               });
               content_div.appendChild(component.$mount().$el)

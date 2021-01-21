@@ -81,7 +81,7 @@
               let component = Vue.extend(NoDataComponent);
               component = new component({
                 propsData: {
-                  title: `Plot [${charts.plotIds[i]}] - ${charts.layout[i].title} `
+                  title: `Plot [${charts.plotIds[i]}] ${charts.layout[i] && charts.layout[i].title ? ' - ' + charts.layout[i].title: ''} `
                 }
               });
               content_div.appendChild(component.$mount().$el)

@@ -261,12 +261,13 @@ function Service(){
           });
           else {
             const withrelations = plot.withrelations && plot.withrelations.length ? plot.withrelations.join(',') : undefined;
+            const relationonetomany = this.relationData ? `${this.relationData.relations.find(relation => plot.qgs_layer_id === relation.referencingLayer).id}|${this.relationData.fid}` : undefined;
             promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
               url: `${BASEQPLOTLYAPIURL}/${plot.id}`,
               params: {
                 withrelations,
                 filtertoken: ApplicationState.tokens.filtertoken || undefined,
-                relationonetomany: this.relationData ? `${this.relationData.relations[0].id}|${this.relationData.fid}` : undefined,
+                relationonetomany,
                 in_bbox : this.customParams.bbox
               }
             });

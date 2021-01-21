@@ -1,11 +1,15 @@
 <template>
-  <div :id="id" style="position:relative;" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
-    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 3px; position: fixed; z-index: 5;">
-      <div class="skin-color action-button skin-tooltip-right" data-placement="right" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']" @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></div>
+  <div :id="id" style="" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
+    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 3px; position: absolute; top: 5px; right: 5px;">
+      <div class="skin-color action-button skin-tooltip-bottom" data-placement="bottom" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled-white' : '']" @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></div>
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; display: flex; flex-direction: column; justify-content: space-evenly" :style="{height: `${height}%`}">
-      <div v-for="plotly_div in plotly_divs" class="plot_div_content" :ref="plotly_div" style="height: 100%; display: flex; justify-content: center; align-items: center"></div>
+      <div v-for="(plotly_div, index) in plotly_divs" class="plot_div_content" :ref="plotly_div" style="position:relative; height: 100%; display: flex; justify-content: center; align-items: center">
+        <div v-if="filters[index].length" style="position: absolute; top:0; left: 2px; color:orange; font-weight: bold" v-t-plugin:pre="'qplotly.active_filter'">
+          <filtersinfo :filters="filters[index]"></filtersinfo>
+        </div>
+      </div>
     </div>
     <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
       <h4 style="font-weight: bold;" v-t-plugin="'qplotly.no_plots'"></h4>
@@ -15,12 +19,17 @@
 
 <script>
   const NoDataComponent = require('./nodata');
+  const FiltersInfo = require('./filtersinfo');
+  const { tPlugin } = g3wsdk.core.i18n;
   const GUI = g3wsdk.gui.GUI;
   const {getUniqueDomId} = g3wsdk.core.utils;
   const {resizeMixin} = g3wsdk.gui.vue.Mixins;
   export default {
     name: "qplotly",
     mixins: [resizeMixin],
+    components: {
+      filtersinfo: FiltersInfo
+    },
     data(){
       this.id = getUniqueDomId();
       this.wrapped = !!this.$options.ids;
@@ -30,7 +39,8 @@
         show: true,
         overflowY: 'none',
         height: 100,
-        plotly_divs: []
+        plotly_divs: [],
+        filters:[]
       }
     },
     computed:{
@@ -54,6 +64,7 @@
           Plotly.purge(content_div)
         });
         this.plotly_divs.splice(0);
+        this.filters.splice(0);
       },
       async handleDataLayout({charts={}}={}){
         this.show = false;
@@ -68,12 +79,17 @@
         await this.$nextTick();
         if (dataLength > 0) {
           for (let i=0; i < dataLength; i++){
-            this.plotly_divs.push(`plot_div_${i}`)
+            this.plotly_divs.push(`plot_div_${i}`);
+            const filters = charts.filters[i];
+            this.filters.push(Object.keys(filters).filter(filter => filters[filter]))
+            console.log(this.filters)
+
           }
           await this.$nextTick();
           for (let i = 0; i < dataLength; i++) {
             const content_div = this.$refs[this.plotly_divs[i]][0];
             if (charts.data[i] && Array.isArray(charts.data[i].x) && charts.data[i].x.length) {
+              const chartfilters = charts.filters[i];
               const data = [charts.data[i]];
               const layout = charts.layout[i];
               Plotly.newPlot(content_div, data , layout, config);

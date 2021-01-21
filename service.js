@@ -43,6 +43,12 @@ function Service(){
      // set automargin
      plot.plot.layout.xaxis.automargin = true;
      plot.plot.layout.yaxis.automargin = true;
+     plot.filters = {
+       in_bbox: false,
+       filtertoken: false,
+       'relation.filtertoken': false,
+       'relation.in_bbox': false
+     };
      //end automargin
      layersId.add(plot.qgs_layer_id);
    });
@@ -213,6 +219,12 @@ function Service(){
   this.resetPlotDynamicValues = function(plot){
     plot.withrelations = null;
     plot.request = true;
+    plot.filters = {
+      in_bbox: false,
+      filtertoken: false,
+      'relation.in_bbox': false,
+      'relation.filtertoken': false
+    }
   };
 
   this.getCharts = async function(ids, relationData){
@@ -224,7 +236,8 @@ function Service(){
       const charts = {
         data: [],
         layout: [],
-        plotIds: []
+        plotIds: [],
+        filters: []
       };
       // set plot id to show
       if (plots.length > 1) {
@@ -253,22 +266,28 @@ function Service(){
       if (Promise.allSettled) {
         const promises = [];
         plots.forEach(plot => {
+          const layer = CatalogLayersStoresRegistry.getLayerById(plot.qgs_layer_id);
+          plot.filters.filtertoken = layer.getFilterActive();
           let promise;
           // in case of no request (relation)
-          if (!plot.request) promise = Promise.resolve({
-            result: true,
-            relation:true
-          });
+          if (!plot.request) {
+            promise = Promise.resolve({
+              result: true,
+              relation:true
+            });
+          }
           else {
             const withrelations = plot.withrelations && plot.withrelations.length ? plot.withrelations.join(',') : undefined;
             const relationonetomany = this.relationData ? `${this.relationData.relations.find(relation => plot.qgs_layer_id === relation.referencingLayer).id}|${this.relationData.fid}` : undefined;
+            const in_bbox = this.customParams.bbox;
+            plot.filters.in_bbox = !!in_bbox;
             promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
               url: `${BASEQPLOTLYAPIURL}/${plot.id}`,
               params: {
                 withrelations,
                 filtertoken: ApplicationState.tokens.filtertoken || undefined,
                 relationonetomany,
-                in_bbox : this.customParams.bbox
+                in_bbox
               }
             });
           }
@@ -278,6 +297,7 @@ function Service(){
           .then(async promisesData =>{
             const alreadyusedindex = [];
             promisesData.forEach((promise, rootindex) =>{
+              let plot;
               if (promise.status === 'fulfilled' && promise.value.result) {
                 const {data, relation, relations} = promise.value;
                 if (relation) return; // in case of relation do nothing
@@ -285,9 +305,11 @@ function Service(){
                   Object.keys(relations).forEach( relationId =>{
                     const relationdata = relations[relationId];
                     relationdata.forEach(({id, data}) =>{
+                      const fatherPlot = plots.find(plot => plot.withrelations && plot.withrelations.indexOf(relationId) !== -1);
+                      const fatherPlotFilters = fatherPlot && fatherPlot.filters;
                       plots.find((plot, index) => {
                         if (plot.id === id){
-                          const foundIndex = alreadyusedindex.find(_index => _index.index === index)
+                          const foundIndex = alreadyusedindex.find(_index => _index.index === index);
                           if (!foundIndex) alreadyusedindex.push({
                             index, count:1
                           });
@@ -299,6 +321,11 @@ function Service(){
                           const layout = plot.plot.layout;
                           layout.title = `${this._relationIdName[relationId]} ${layout._title}`;
                           charts.data[_index] = data[0];
+                          if (fatherPlotFilters) {
+                            plot.filters['relation.in_bbox'] = fatherPlotFilters.in_bbox;
+                            plot.filters['relation.filtertoken'] = fatherPlotFilters.filtertoken;
+                          }
+                          charts.filters[_index] = plot.filters;
                           charts.layout[_index] = layout;
                           charts.plotIds[_index] = plot.id;
                           this.resetPlotDynamicValues(plot);
@@ -308,22 +335,23 @@ function Service(){
                     })
                   });
                 }
-                const plot = plots[rootindex];
+                plot = plots[rootindex];
                 plot.plot.layout.title = plot.plot.layout._title;
-                this.resetPlotDynamicValues(plot);
                 /*this.loadedplots[plot.id] = {
                   result: true,
                   data
                 };*/
                 charts.data[rootindex] = data[0] ;
+                charts.filters[rootindex] = plot.filters;
                 charts.layout[rootindex] = plot.plot.layout;
                 charts.plotIds[rootindex] = plot.id;
               } else  {
-                const plot = plots[rootindex];
+                plot = plots[rootindex];
                 charts.data[rootindex] = null;
+                charts.filters[rootindex] = plot.filters;
                 charts.plotIds[rootindex] = plot.id;
-                this.resetPlotDynamicValues(plot);
               }
+              this.resetPlotDynamicValues(plot);
             });
             !ids && await GUI.setLoadingContent(false);
             if (this.relationData) this.state.loading = false;

@@ -216,21 +216,24 @@ function Service(){
     this.reloaddata = false;
   };
 
-  this.resetPlotDynamicValues = function(plot){
-    plot.withrelations = null;
-    plot.request = true;
-    plot.filters = {
-      in_bbox: false,
-      filtertoken: false,
-      'relation.in_bbox': false,
-      'relation.filtertoken': false
-    }
+  this.resetPlotDynamicValues = function(){
+    this.config.plots.forEach(plot  => {
+      plot.withrelations = null;
+      plot.request = true;
+      plot.filters = {
+        in_bbox: false,
+        filtertoken: false,
+        'relation.in_bbox': false,
+        'relation.filtertoken': false
+      }
+    })
   };
 
   this.getCharts = async function(ids, relationData){
     this.relationData = this.reloaddata ? this.relationData : relationData;
     if (this.relationData) this.state.loading = true;
     !ids && await GUI.setLoadingContent(true);
+    this.resetPlotDynamicValues();
     return new Promise((resolve) => {
       const plots = ids ? this.config.plots.filter(plot => ids.indexOf(plot.qgs_layer_id) !== -1) : this.config.plots.filter(plot => plot.show);
       const charts = {
@@ -328,7 +331,6 @@ function Service(){
                           charts.filters[_index] = plot.filters;
                           charts.layout[_index] = layout;
                           charts.plotIds[_index] = plot.id;
-                          this.resetPlotDynamicValues(plot);
                           return true;
                         }
                       });
@@ -351,7 +353,6 @@ function Service(){
                 charts.filters[rootindex] = plot.filters;
                 charts.plotIds[rootindex] = plot.id;
               }
-              this.resetPlotDynamicValues(plot);
             });
             !ids && await GUI.setLoadingContent(false);
             if (this.relationData) this.state.loading = false;

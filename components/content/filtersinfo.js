@@ -9,9 +9,7 @@ module.exports = {
   render(h){
     return h('ul', {
       style: {
-        listStyleType: 'none',
-        padding: '0',
-        fontWeight: 'normal'
+        padding: '8px 0 0 20px',
       }
     }, this.filters.map(filter => h('li', {
        directives: [{

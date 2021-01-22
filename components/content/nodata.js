@@ -5,7 +5,15 @@ module.exports = {
     }
   },
   render(h){
-    return h('div', [
+    return h('div', {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        height: '100%',
+        justifyContent: 'center'
+      }
+    }, [
       h('h4', {
         style: {
           fontWeight: 'bold'

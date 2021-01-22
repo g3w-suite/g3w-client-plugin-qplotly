@@ -4,11 +4,12 @@
       <div class="skin-color action-button skin-tooltip-bottom" data-placement="bottom" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled-white' : '']" @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></div>
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
-    <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; display: flex; flex-direction: column; justify-content: space-evenly" :style="{height: `${height}%`}">
-      <div v-for="(plotly_div, index) in plotly_divs" class="plot_div_content" :ref="plotly_div" style="position:relative; height: 100%; display: flex; justify-content: center; align-items: center">
-        <div v-if="filters[index].length" style="position: absolute; top:0; left: 2px; color:orange; font-weight: bold" v-t-plugin:pre="'qplotly.active_filter'">
+    <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF;" :style="{height: `${height}%`}">
+      <div v-for="(plotly_div, index) in plotly_divs" style="border-bottom: 2px solid #eeee; position:relative; display: flex; justify-content: center; flex-direction: column; align-items: center" :style="{height: `${100/plotly_divs.length}%`}">
+        <div v-if="filters[index].length" class="skin-background-color" style="width:100%;color: #FFFFFF; font-weight: bold;">
           <filtersinfo :filters="filters[index]"></filtersinfo>
         </div>
+        <div class="plot_div_content" :ref="plotly_div" style="position:relative; width:100%; height: 100%;"></div>
       </div>
     </div>
     <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
@@ -58,38 +59,35 @@
           Plotly.Plots.react();
         } catch (e) {}
       },
-      clearPlotlyDivs(){
+      async clearPlotlyDivs(){
         this.plotly_divs.forEach(plot_div =>{
           const content_div = this.$refs[plot_div][0];
           Plotly.purge(content_div)
         });
         this.plotly_divs.splice(0);
         this.filters.splice(0);
+        await this.$nextTick();
+
       },
       async handleDataLayout({charts={}}={}){
         this.show = false;
-        this.clearPlotlyDivs();
-        await this.$nextTick();
+        await this.clearPlotlyDivs();
         const config = this.$options.service.getChartConfig();
         const dataLength = charts.data.length;
         const addedHeight = (this.relationData && this.relationData.height ? dataLength * 50 : (dataLength > 2 ? dataLength - 2 : 0) * 50 );
         this.height = 100 + addedHeight;
         this.overflowY = addedHeight > 0 ? 'auto' : 'none';
         this.show = dataLength > 0;
-        await this.$nextTick();
         if (dataLength > 0) {
           for (let i=0; i < dataLength; i++){
             this.plotly_divs.push(`plot_div_${i}`);
             const filters = charts.filters[i];
-            this.filters.push(Object.keys(filters).filter(filter => filters[filter]))
-            console.log(this.filters)
-
+            this.filters.push(Object.keys(filters).filter(filter => filters[filter]));
           }
           await this.$nextTick();
           for (let i = 0; i < dataLength; i++) {
             const content_div = this.$refs[this.plotly_divs[i]][0];
             if (charts.data[i] && Array.isArray(charts.data[i].x) && charts.data[i].x.length) {
-              const chartfilters = charts.filters[i];
               const data = [charts.data[i]];
               const layout = charts.layout[i];
               Plotly.newPlot(content_div, data , layout, config);

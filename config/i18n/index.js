@@ -5,13 +5,12 @@ export default {
     no_subplots_charts: 'Grafici esclusivi',
     no_plots : 'Nessun grafico da mostrare. Aggiungi almeno un grafico',
     no_data: "Nessun dato disponibile",
-    active_filter: "Filtri attivi:",
     filters: {
-      in_bbox: 'Mappa',
-      filtertoken: 'Selezione',
+      in_bbox: 'Sulla tabella di origine sono attivi filtri su visualizzazione mappa',
+      filtertoken: 'Sulla tabella di origine sono attivi filtri su selezione',
       relation: {
-        filtertoken: "Padre - Selezione",
-        in_bbox: "Padre - Mappa"
+        filtertoken: "Sulla tabella padre sono attivi filtri su selezione",
+        in_bbox: "Sulla tabella padre sono attivi filtri su visualizzazione mappa"
       }
     }
   },
@@ -22,13 +21,44 @@ export default {
     no_plots : 'No chart. Add at least one plot',
     no_data: "No Data available",
     in_bbox: 'Mappa',
-    active_filter: "Active Filter",
     filters: {
-      in_bbox: 'Map',
-      filtertoken: 'Selection',
+      in_bbox: 'Sulla tabella di origine sono attivi filtri su visualizzazione mappa',
+      filtertoken: 'Sulla tabella di origine sono attivi filtri su selezione',
       relation: {
-        filtertoken: "Father: Selection",
-        in_bbox: "Father -  Map"
+        filtertoken: "Sulla tabella padre sono attivi filtri su selezione",
+        in_bbox: "Sulla tabella padre sono attivi filtri su visualizzazione mappa"
+      }
+    }
+  },
+  fi: {
+    title: 'Charts',
+    pietitle: "Pie Charts",
+    no_subplots_charts: 'Exclusive plots',
+    no_plots : 'No chart. Add at least one plot',
+    no_data: "No Data available",
+    in_bbox: 'Mappa',
+    filters: {
+      in_bbox: 'Sulla tabella di origine sono attivi filtri su visualizzazione mappa',
+      filtertoken: 'Sulla tabella di origine sono attivi filtri su selezione',
+      relation: {
+        filtertoken: "Sulla tabella padre sono attivi filtri su selezione",
+        in_bbox: "Sulla tabella padre sono attivi filtri su visualizzazione mappa"
+      }
+    }
+  },
+  se: {
+    title: 'Charts',
+    pietitle: "Pie Charts",
+    no_subplots_charts: 'Exclusive plots',
+    no_plots : 'No chart. Add at least one plot',
+    no_data: "No Data available",
+    in_bbox: 'Mappa',
+    filters: {
+      in_bbox: 'Sulla tabella di origine sono attivi filtri su visualizzazione mappa',
+      filtertoken: 'Sulla tabella di origine sono attivi filtri su selezione',
+      relation: {
+        filtertoken: "Sulla tabella padre sono attivi filtri su selezione",
+        in_bbox: "Sulla tabella padre sono attivi filtri su visualizzazione mappa"
       }
     }
   }

@@ -1,14 +1,12 @@
 <template>
   <div :id="id" style="" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
-    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 3px; position: absolute; top: 5px; right: 5px;">
+    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 3px; position: absolute; top: 5px; right: 9px;">
       <div class="skin-color action-button skin-tooltip-bottom" data-placement="bottom" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled-white' : '']" @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></div>
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF;" :style="{height: `${height}%`}">
-      <div v-for="(plotly_div, index) in plotly_divs" style="border-bottom: 2px solid #eeee; position:relative; display: flex; justify-content: center; flex-direction: column; align-items: center" :style="{height: `${100/plotly_divs.length}%`}">
-        <div v-if="filters[index].length" class="skin-background-color" style="width:100%;color: #FFFFFF; font-weight: bold;">
-          <filtersinfo :filters="filters[index]"></filtersinfo>
-        </div>
+      <div v-for="(plotly_div, index) in plotly_divs" style="position:relative; display: flex; justify-content: center; flex-direction: column; align-items: center" :style="{height: `${100/plotly_divs.length}%`}">
+        <filtersinfo :title="titles[index]" :filters="filters[index]"></filtersinfo>
         <div class="plot_div_content" :ref="plotly_div" style="position:relative; width:100%; height: 100%;"></div>
       </div>
     </div>
@@ -41,7 +39,8 @@
         overflowY: 'none',
         height: 100,
         plotly_divs: [],
-        filters:[]
+        filters:[],
+        titles:[]
       }
     },
     computed:{
@@ -59,19 +58,20 @@
           Plotly.Plots.react();
         } catch (e) {}
       },
-      async clearPlotlyDivs(){
+      async clearPlotlyData(){
         this.plotly_divs.forEach(plot_div =>{
           const content_div = this.$refs[plot_div][0];
           Plotly.purge(content_div)
         });
         this.plotly_divs.splice(0);
         this.filters.splice(0);
+        this.titles.splice(0);
         await this.$nextTick();
 
       },
       async handleDataLayout({charts={}}={}){
         this.show = false;
-        await this.clearPlotlyDivs();
+        await this.clearPlotlyData();
         const config = this.$options.service.getChartConfig();
         const dataLength = charts.data.length;
         const addedHeight = (this.relationData && this.relationData.height ? dataLength * 50 : (dataLength > 2 ? dataLength - 2 : 0) * 50 );
@@ -82,6 +82,7 @@
           for (let i=0; i < dataLength; i++){
             this.plotly_divs.push(`plot_div_${i}`);
             const filters = charts.filters[i];
+            this.titles.push(charts.layout[i].title.toUpperCase());
             this.filters.push(Object.keys(filters).filter(filter => filters[filter]));
           }
           await this.$nextTick();
@@ -132,7 +133,7 @@
       this.$options.service.off('change-charts', this.getCharts);
       this.relationData && GUI.off('pop-content', this.resize);
       this.$options.service.clearLoadedPlots();
-      this.clearPlotlyDivs();
+      this.clearPlotlyData();
     }
   }
 </script>

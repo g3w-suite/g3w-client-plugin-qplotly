@@ -142,9 +142,7 @@ function Service(){
       }
     });
 
-    this.once('clear', () => {
-      GUI.removeComponent('qplotly', 'sidebar', options)
-    })
+    this.once('clear', () => GUI.removeComponent('qplotly', 'sidebar', options));
   };
 
   //load scripts from server
@@ -152,11 +150,8 @@ function Service(){
     for (const script of this.config.jsscripts) {
       const promise = new Promise((resolve, reject) => {
         $.getScript(script)
-          .done(() => {
-            resolve();
-          }).fail(() => {
-          reject();
-        })
+          .done(() => resolve())
+          .fail(() => reject())
       });
       await promise;
     }

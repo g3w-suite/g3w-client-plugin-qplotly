@@ -16,6 +16,7 @@ function Service(){
   this.loading = false;
   this.state = Vue.observable({
     loading: false,
+    chartsloading: false,
     geolayer: false,
     tools: {
       map: {
@@ -227,7 +228,11 @@ function Service(){
   this.getCharts = async function(ids, relationData){
     this.relationData = this.reloaddata ? this.relationData : relationData;
     if (this.relationData) this.state.loading = true;
-    !ids && await GUI.setLoadingContent(true);
+    if (!ids) {
+      this.emit('charts-loading', true);
+      this.state.chartsloading = true;
+      await GUI.setLoadingContent(true);
+    }
     this.resetPlotDynamicValues();
     return new Promise((resolve) => {
       const plots = ids ? this.config.plots.filter(plot => ids.indexOf(plot.qgs_layer_id) !== -1) : this.config.plots.filter(plot => plot.show);
@@ -349,7 +354,11 @@ function Service(){
                 charts.plotIds[rootindex] = plot.id;
               }
             });
-            !ids && await GUI.setLoadingContent(false);
+            if (!ids) {
+              this.emit('charts-loading', false);
+              this.state.chartsloading = false;
+              await GUI.setLoadingContent(false);
+            }
             if (this.relationData) this.state.loading = false;
             resolve(charts);
           })

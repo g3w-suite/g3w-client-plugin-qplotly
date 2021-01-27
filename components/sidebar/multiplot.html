@@ -3,13 +3,13 @@
     <span class="skin-color" v-t-plugin="'qplotly.no_subplots_charts'"></span>
   </li>
   <li v-for="plot in notsubplots" :key="plot.id">
-    <input type="radio" :id="plot.id" class="magic-radio" :value="true" v-model="plot.show" @change="addRemovePlot(plot)" :disabled="disabled">
-    <label :for="plot.id">{{plot.label}}</label>
+    <input type="radio" :id="plot.id" class="magic-radio" :value="true" v-model="plot.show" @change="addRemovePlot(plot)">
+    <label :class="{'g3w-disabled': loading}" :for="plot.id">{{plot.label}}</label>
   </li>
   <div v-if="subplots.length && notsubplots.length" style="border-bottom: 2px solid; margin-top: 10px; margin-bottom: 10px;" class="skin-border-color"></div>
   <li v-for="plot in subplots" :key="plot.id">
-    <input type="checkbox" :id="plot.id" class="magic-checkbox" v-model="plot.show" @change="addRemovePlot(plot)" :disabled="disabled">
-    <label :for="plot.id" style="display:flex; justify-content: space-between">
+    <input type="checkbox" :id="plot.id" class="magic-checkbox" v-model="plot.show" @change="addRemovePlot(plot)" >
+    <label :class="{'g3w-disabled': loading}" :for="plot.id" style="display:flex; justify-content: space-between">
       <span>{{plot.label}}</span>
       <span>{{plot.plot.type}}</span>
     </label>

@@ -14,6 +14,7 @@ function Service(){
   this.mapService = GUI.getComponent('map').getService();
   this.loadedplots = {};
   this.loading = false;
+  this.showCharts = false;
   this.state = Vue.observable({
     loading: false,
     chartsloading: false,
@@ -49,7 +50,7 @@ function Service(){
      layersId.add(plot.qgs_layer_id);
    });
    this.changeChartsEventHandler = async (layerId) =>{
-     const change = this.config.plots.find(plot=> plot.qgs_layer_id === layerId && plot.show);
+     const change = this.showCharts && !this.relationData && this.config.plots.find(plot=> plot.qgs_layer_id === layerId && plot.show);
      // in case of a filter is chgange on showed chart it redraw the chart
      if (change) {
        this.reloaddata = true;
@@ -191,6 +192,7 @@ function Service(){
     this.state.tools.map.toggled = false;
     this.customParams.bbox = undefined;
     this.mapService.getMap().un('moveend', this.changeChartsEventHandler);
+    this.showCharts = false;
   };
 
   this.setBBoxParameter = function(){
@@ -350,6 +352,7 @@ function Service(){
               await GUI.setLoadingContent(false);
             }
             if (this.relationData) this.state.loading = false;
+            this.showCharts = true;
             resolve(charts);
           })
       }

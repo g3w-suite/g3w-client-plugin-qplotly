@@ -13,12 +13,6 @@ export default function MultiPlot({service}={}){
     computed: {
       loading(){
         return service.state.chartsloading;
-      },
-      notsubplots(){
-        return this.plots.filter(plot => charts.no_subplots.indexOf(plot.plot.type) !== -1);
-      },
-      subplots(){
-        return this.plots.filter(plot => charts.no_subplots.indexOf(plot.plot.type) === -1);
       }
     },
     methods:{
@@ -30,8 +24,6 @@ export default function MultiPlot({service}={}){
     },
     created() {
       this.plots = service.getPlots();
-    },
-    beforeDestroy(){
     }
   }
 };

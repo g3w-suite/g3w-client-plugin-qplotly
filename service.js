@@ -44,22 +44,21 @@ function Service(){
      // set automargin
      plot.plot.layout.xaxis.automargin = true;
      plot.plot.layout.yaxis.automargin = true;
-     plot.filters = {
-       in_bbox: false,
-       filtertoken: false,
-       'relation.filtertoken': false,
-       'relation.in_bbox': false
-     };
+     plot.filters = [];
      //end automargin
      layersId.add(plot.qgs_layer_id);
    });
-   this.changeChartsEventHandler = async () =>{
-     this.reloaddata = true;
-     this.setBBoxParameter();
-     try {
-       await this.getChartsAndEmit();
-     } catch(e){}
-     this.reloaddata = false;
+   this.changeChartsEventHandler = async (layerId) =>{
+     const change = this.config.plots.find(plot=> plot.qgs_layer_id === layerId && plot.show);
+     // in case of a filter is chgange on showed chart it redraw the chart
+     if (change) {
+       this.reloaddata = true;
+       this.setBBoxParameter();
+       try {
+         await this.getChartsAndEmit();
+       } catch(e){}
+       this.reloaddata = false;
+     }
    };
    // listen layer change filter to reload the charts
    layersId.forEach(layerId => {
@@ -216,12 +215,7 @@ function Service(){
     this.config.plots.forEach(plot  => {
       plot.withrelations = null;
       plot.request = true;
-      plot.filters = {
-        in_bbox: false,
-        filtertoken: false,
-        'relation.in_bbox': false,
-        'relation.filtertoken': false
-      }
+      plot.filters = [];
     })
   };
 
@@ -270,7 +264,7 @@ function Service(){
         const promises = [];
         plots.forEach(plot => {
           const layer = CatalogLayersStoresRegistry.getLayerById(plot.qgs_layer_id);
-          plot.filters.filtertoken = layer.getFilterActive();
+          layer.getFilterActive() && plot.filters.push('filtertoken');
           let promise;
           // in case of no request (relation)
           if (!plot.request) {
@@ -278,12 +272,11 @@ function Service(){
               result: true,
               relation:true
             });
-          }
-          else {
+          } else {
             const withrelations = plot.withrelations && plot.withrelations.length ? plot.withrelations.join(',') : undefined;
             const relationonetomany = this.relationData ? `${this.relationData.relations.find(relation => plot.qgs_layer_id === relation.referencingLayer).id}|${this.relationData.fid}` : undefined;
             const in_bbox = this.customParams.bbox;
-            plot.filters.in_bbox = !!in_bbox;
+            if (!!in_bbox) plot.filters.length ? plot.filters[0] = 'in_bbox_filtertoken' : plot.filters.push('in_bbox');
             promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
               url: `${BASEQPLOTLYAPIURL}/${plot.id}`,
               params: {
@@ -324,10 +317,7 @@ function Service(){
                           const layout = plot.plot.layout;
                           layout.title = `${this._relationIdName[relationId]} ${layout._title}`;
                           charts.data[_index] = data[0];
-                          if (fatherPlotFilters) {
-                            plot.filters['relation.in_bbox'] = fatherPlotFilters.in_bbox;
-                            plot.filters['relation.filtertoken'] = fatherPlotFilters.filtertoken;
-                          }
+                          if (fatherPlotFilters.length) plot.filters.push(`relation.${fatherPlotFilters[0]}`);
                           charts.filters[_index] = plot.filters;
                           charts.layout[_index] = layout;
                           charts.plotIds[_index] = plot.id;

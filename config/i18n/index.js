@@ -6,11 +6,13 @@ export default {
     no_plots : 'Nessun grafico da mostrare. Aggiungi almeno un grafico',
     no_data: "Nessun dato disponibile",
     filters: {
-      in_bbox: 'Sulla tabella di origine sono attivi filtri su visualizzazione mappa',
-      filtertoken: 'Sulla tabella di origine sono attivi filtri su selezione',
+      in_bbox: "Sul grafico sono attivi filtri basati sull'area di mappa visualizzata",
+      filtertoken: "Sul grafico sono attivi filtri basati su selezione elementi",
+      in_bbox_filtertoken: "Sul grafico sono attivi filtri basati sull'area di mappa visualizzata e su selezione elementi",
       relation: {
-        filtertoken: "Sulla tabella padre sono attivi filtri su selezione",
-        in_bbox: "Sulla tabella padre sono attivi filtri su visualizzazione mappa"
+        in_bbox: "Sul grafico sono attivi filtri basati sull'area di mappa visualizzata relativi alla tabella padre",
+        filtertoken: "Sul grafico sono attivi filtri basati su selezione elementi relativi alla tabella padre",
+        in_bbox_filtertoken: "Sul grafico sono attivi filtri basati sull'area di mappa visualizzata e su selezione elementi relativi alla tabella padre"
       }
     }
   },
@@ -20,13 +22,15 @@ export default {
     no_subplots_charts: 'Exclusive plots',
     no_plots : 'No chart. Add at least one plot',
     no_data: "No Data available",
-    in_bbox: 'Mappa',
+    in_bbox: 'Map',
     filters: {
-      in_bbox: 'Sulla tabella di origine sono attivi filtri su visualizzazione mappa',
-      filtertoken: 'Sulla tabella di origine sono attivi filtri su selezione',
+      in_bbox: "Filters based on the displayed map area are active on the graph",
+      filtertoken: "Filters based on element selection are active on the chart",
+      in_bbox_filtertoken: "Filters based on the displayed map and on element selection area are active on the graph",
       relation: {
-        filtertoken: "Sulla tabella padre sono attivi filtri su selezione",
-        in_bbox: "Sulla tabella padre sono attivi filtri su visualizzazione mappa"
+        in_bbox: "Filters based on the map area displayed relative to the parent table are active on the chart",
+        filtertoken: "Filters based on element selection relative to the parent table are active on the chart",
+        in_bbox_filtertoken: "Filters based on the map area displayed and on the selection of elements related to the parent table are active on the chart"
       }
     }
   },
@@ -36,13 +40,15 @@ export default {
     no_subplots_charts: 'Exclusive plots',
     no_plots : 'No chart. Add at least one plot',
     no_data: "No Data available",
-    in_bbox: 'Mappa',
+    in_bbox: 'Map',
     filters: {
-      in_bbox: 'Sulla tabella di origine sono attivi filtri su visualizzazione mappa',
-      filtertoken: 'Sulla tabella di origine sono attivi filtri su selezione',
+      in_bbox: "Filters based on the displayed map area are active on the graph",
+      filtertoken: "Filters based on element selection are active on the chart",
+      in_bbox_filtertoken: "Filters based on the displayed map and on element selection area are active on the graph",
       relation: {
-        filtertoken: "Sulla tabella padre sono attivi filtri su selezione",
-        in_bbox: "Sulla tabella padre sono attivi filtri su visualizzazione mappa"
+        in_bbox: "Filters based on the map area displayed relative to the parent table are active on the chart",
+        filtertoken: "Filters based on element selection relative to the parent table are active on the chart",
+        in_bbox_filtertoken: "Filters based on the map area displayed and on the selection of elements related to the parent table are active on the chart"
       }
     }
   },
@@ -52,13 +58,15 @@ export default {
     no_subplots_charts: 'Exclusive plots',
     no_plots : 'No chart. Add at least one plot',
     no_data: "No Data available",
-    in_bbox: 'Mappa',
+    in_bbox: 'Map',
     filters: {
-      in_bbox: 'Sulla tabella di origine sono attivi filtri su visualizzazione mappa',
-      filtertoken: 'Sulla tabella di origine sono attivi filtri su selezione',
+      in_bbox: "Filters based on the displayed map area are active on the graph",
+      filtertoken: "Filters based on element selection are active on the chart",
+      in_bbox_filtertoken: "Filters based on the displayed map and on element selection area are active on the graph",
       relation: {
-        filtertoken: "Sulla tabella padre sono attivi filtri su selezione",
-        in_bbox: "Sulla tabella padre sono attivi filtri su visualizzazione mappa"
+        in_bbox: "Filters based on the map area displayed relative to the parent table are active on the chart",
+        filtertoken: "Filters based on element selection relative to the parent table are active on the chart",
+        in_bbox_filtertoken: "Filters based on the map area displayed and on the selection of elements related to the parent table are active on the chart"
       }
     }
   }

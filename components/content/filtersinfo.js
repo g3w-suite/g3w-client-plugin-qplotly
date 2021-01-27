@@ -24,7 +24,8 @@ module.exports = {
             width: '100%',
             fontWeight: 'bold',
             padding: '2px',
-            minHeight: '20px'
+            minHeight: '20px',
+            fontSize: '1.2em'
           },
           class:{
             'skin-background-color': true
@@ -34,14 +35,18 @@ module.exports = {
         h('ul', {
           style: {
             backgroundColor: "#FFFFFF",
-            padding: '8px 0 0 20px',
-            fontWeight: 'bold'
+            paddingLeft: '3px',
+            fontWeight: 'bold',
+            'list-style-type': 'none'
           },
           class: {
             'skin-color': true
           }
         },
         this.filters.map(filter => h('li', {
+          style: {
+            paddingBottom: '5px'
+          },
           directives: [
             {
               name: 't-plugin',

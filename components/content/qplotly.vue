@@ -81,9 +81,8 @@
         if (dataLength > 0) {
           for (let i=0; i < dataLength; i++){
             this.plotly_divs.push(`plot_div_${i}`);
-            const filters = charts.filters[i];
             this.titles.push(charts.layout[i].title.toUpperCase());
-            this.filters.push(Object.keys(filters).filter(filter => filters[filter]));
+            this.filters.push((charts.filters[i]));
           }
           await this.$nextTick();
           for (let i = 0; i < dataLength; i++) {

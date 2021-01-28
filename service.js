@@ -50,8 +50,9 @@ function Service(){
      layersId.add(plot.qgs_layer_id);
    });
    this.changeChartsEventHandler = async (layerId) =>{
-     const change = this.showCharts && !this.relationData && this.config.plots.find(plot=> plot.qgs_layer_id === layerId && plot.show);
-     // in case of a filter is chgange on showed chart it redraw the chart
+     // change if one of these condition is true
+     const change = this.showCharts && !this.relationData && this.config.plots.find(plot=> this.customParams.bbox || plot.qgs_layer_id === layerId && plot.show);
+     // in case of a filter is change on showed chart it redraw the chart
      if (change) {
        this.reloaddata = true;
        this.setBBoxParameter();

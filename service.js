@@ -404,6 +404,7 @@ function Service(){
   };
 
   this.clear = function(){
+    GUI.removeComponent('qplotly', 'sidebar', {position: 1});
     this.emit('clear');
     // listen layer change filter to reload the charts
     layersId.forEach(layerId => {

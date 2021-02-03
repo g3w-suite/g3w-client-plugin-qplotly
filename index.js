@@ -29,7 +29,7 @@ const _Plugin = function() {
   };
 
   this.unload = function() {
-    this.service.clear()
+    this.service.clear();
   }
 };
 

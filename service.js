@@ -32,9 +32,9 @@ function Service(){
   this.customParams = {
     bbox: undefined
   };
+  let layersId = new Set();
   this.init = function(config={}){
    this.config = config;
-   const layersId = new Set();
    this.chartContainers = [];
    this.config.plots.forEach((plot, index)=>{
      plot.show = index === 0;
@@ -390,6 +390,7 @@ function Service(){
           GUI.showContent({
             closable: false,
             title: 'plugins.qplotly.title',
+            size: '1.4em',
             content,
             perc: 50
           });
@@ -407,7 +408,7 @@ function Service(){
     // listen layer change filter to reload the charts
     layersId.forEach(layerId => {
       const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
-      layer.off('filtertokenchange', this.changeChartWhenFilterChange)
+      layer && layer.off('filtertokenchange', this.changeChartWhenFilterChange)
     });
     this.mapService = null;
     this.chartContainers = [];
@@ -416,6 +417,7 @@ function Service(){
     queryResultService.un('closeComponent', this.closeComponentKeyEevent);
     this.closeComponentKeyEevent = null;
     GUI.closeContent();
+    layersId = null;
   };
 }
 

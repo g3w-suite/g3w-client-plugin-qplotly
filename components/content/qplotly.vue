@@ -1,6 +1,6 @@
 <template>
   <div :id="id" style="" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
-    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 3px; position: absolute; top: 5px; right: 9px;">
+    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 5px; position: absolute; top: 3px; font-size:1.2em; right: 9px;">
       <div class="skin-color action-button skin-tooltip-bottom" data-placement="bottom" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled-white' : '']" @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></div>
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>

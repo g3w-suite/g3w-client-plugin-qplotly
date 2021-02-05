@@ -1,7 +1,9 @@
 <template>
-  <div :id="id" style="" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
-    <div v-if="showtools" class="qplotly-tools" style="display: flex; padding: 5px; position: absolute; top: 3px; font-size:1.2em; right: 9px;">
-      <div class="skin-color action-button skin-tooltip-bottom" data-placement="bottom" data-toggle="tooltip" :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled-white' : '']" @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></div>
+  <div :id="id" class="skin-color" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
+    <div v-if="showtools" class="qplotly-tools" style="border-radius: 3px; background-color: #FFFFFF; display: flex; padding: 3px; position: absolute; top: 3px; font-size:1.4em; right: 15px;">
+      <span class="skin-color action-button skin-tooltip-bottom" data-placement="bottom" data-toggle="tooltip" style="font-weight: bold; margin-left: 2px"
+        :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']"
+        @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></span>
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF;" :style="{height: `${height}%`}">
@@ -82,10 +84,12 @@
             if (loadedPlotId === plotId) {
               this.charts.data[loadedIndex] = charts.data[index];
               this.charts.filters[loadedIndex].splice(0);
-              charts.filters[index].forEach(filter =>{
-                this.charts.filters[loadedIndex].push(filter)
+              this.$nextTick(()=>{
+                charts.filters[index].forEach(filter =>{
+                  this.charts.filters[loadedIndex].push(filter)
+                });
+                this.drawPlotlyChart(loadedIndex, true);
               });
-              this.drawPlotlyChart(loadedIndex, true);
               return true
             }
           })

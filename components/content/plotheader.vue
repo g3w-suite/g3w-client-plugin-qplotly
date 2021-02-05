@@ -2,11 +2,11 @@
   <div style="width:100%">
     <div class="skin-background-color" style="display:flex; width: 100%; font-weight: bold; padding: 2px; min-height: 20px; font-size: 1.2em; text-align: center; color: #FFFFFF">
       <div style="margin:auto">{{ title }}</div>
-      <div v-if="showtools" class="plot-tools" style="background-color: #FFFFFF; padding: 2px; font-size: 1.0em;">
-        <span v-if="tools.selection.active" class="action-button skin-tooltip-left" @click="toggleFilter" :class="{'toggled': tools.filter.active}" data-placement="left" data-toggle="tooltip" v-t-tooltip="'layer_selection_filter.tools.filter'">
+      <div v-if="showtools" class="plot-tools" style="background-color: #FFFFFF; padding: 2px; font-size: 1.0em; border-radius: 3px">
+        <span v-if="tools.selection.active" style="margin: auto" class="action-button skin-tooltip-left" @click="toggleFilter" :class="{'toggled': tools.filter.active}" data-placement="left" data-toggle="tooltip" v-t-tooltip="'layer_selection_filter.tools.filter'">
           <span  class="action-button-icon" :class="g3wtemplate.getFontClass('filter')"></span>
         </span>
-        <span v-if="tools.geolayer.show" class="action-button skin-tooltip-left" :class="{'toggled': tools.geolayer.active }" @click="toggleBBoxTool" data-placement="left" data-toggle="tooltip" v-t-tooltip="'layer_selection_filter.tools.filter'">
+        <span v-if="tools.geolayer.show" style="margin: auto" class="action-button skin-tooltip-left" :class="{'toggled': tools.geolayer.active }" @click="toggleBBoxTool" data-placement="left" data-toggle="tooltip" v-t-tooltip="'layer_selection_filter.tools.filter'">
           <span  class="action-button-icon" :class="g3wtemplate.getFontClass('map')"></span>
         </span>
       </div>

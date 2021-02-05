@@ -179,7 +179,6 @@ function Service(){
   };
 
   this.setActivePlotToolGeolayer = function(plot){
-    plot.tools.geolayer.active = plot.tools.geolayer.show && this.mainbboxtool ? this.state.tools.map.toggled : plot.tools.geolayer.active ;
     if (plot.tools.geolayer.active) plot.filters.length ? plot.filters[0] = 'in_bbox_filtertoken' : plot.filters.push('in_bbox');
   };
 
@@ -204,8 +203,11 @@ function Service(){
 
   this.hidePlot = async function(plot){
     if (this.keyMapMoveendEvent.key) this.keyMapMoveendEvent.plotIds = this.keyMapMoveendEvent.plotIds.filter(plotId => plot.id !== plotId.id);
-    if (this.keyMapMoveendEvent.plotIds.length === 0)
+    if (this.keyMapMoveendEvent.plotIds.length === 0) {
       this.customParams.bbox = void 0;
+      this.state.tools.map.toggled = false;
+    }
+
     await this.getChartsAndEmit();
   };
 
@@ -219,6 +221,10 @@ function Service(){
     this.customParams.bbox = undefined;
     this.handleKeyMapMoveendEvent({
       listen: false
+    });
+    this.config.plots.forEach(plot => {
+      plot.tools.geolayer.active = false;
+      plot.filters = []
     });
     this.showCharts = false;
   };
@@ -384,6 +390,7 @@ function Service(){
                           layout.title = `${this._relationIdName[relationId]} ${layout._title}`;
                           charts.data[_index] = data[0];
                           if (fatherPlotFilters.length) plot.filters.push(`relation.${fatherPlotFilters[0]}`);
+                          this.setActivePlotToolGeolayer(plot);
                           charts.filters[_index] = plot.filters;
                           charts.layout[_index] = layout;
                           charts.plotIds[_index] = plot.id;
@@ -402,6 +409,7 @@ function Service(){
                   data
                 };*/
                 charts.data[rootindex] = data[0] ;
+                this.setActivePlotToolGeolayer(plot);
                 charts.filters[rootindex] = plot.filters;
                 charts.layout[rootindex] = plot.plot.layout;
                 charts.plotIds[rootindex] = plot.id;
@@ -411,6 +419,7 @@ function Service(){
               } else  {
                 plot = plots[rootindex];
                 charts.data[rootindex] = null;
+                this.setActivePlotToolGeolayer(plot);
                 charts.filters[rootindex] = plot.filters;
                 charts.plotIds[rootindex] = plot.id;
                 charts.tools[rootindex] = plot.tools;
@@ -425,7 +434,6 @@ function Service(){
             if (this.relationData) this.state.loading = false;
             this.showCharts = true;
             this.removeInactivePlotIds();
-            // reset active false plot Id afte call
             resolve(charts);
           })
       }
@@ -468,7 +476,12 @@ function Service(){
           GUI.showContent({
             closable: false,
             title: 'plugins.qplotly.title',
-            size: '1.4em',
+            style: {
+              title: {
+                fontSize: '1.3em',
+                marginBottom: '20px'
+              }
+            },
             content,
             perc: 50
           });

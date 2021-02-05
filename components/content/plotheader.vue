@@ -22,6 +22,9 @@
   export default {
     name: "plotheader",
     props:{
+      index: {
+        tyep: Number
+      },
       layerId:{
         type: String
       },
@@ -62,7 +65,7 @@
       },
       toggleBBoxTool(){
         this.tools.geolayer.active = !this.tools.geolayer.active;
-        this.$emit('toggle-bbox-tool');
+        this.$emit('toggle-bbox-tool', {index:this.index, active:this.tools.geolayer.active});
       }
     }
   }

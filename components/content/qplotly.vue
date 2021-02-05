@@ -57,11 +57,18 @@
       handleToggleFilter({layerId}={}){
         this.$options.service.toggleLayerFilter(layerId);
       },
-      async handleBBoxTools(){
+      async handleBBoxTools({index, active}={}){
         const plotIds = [];
+        if (!active) plotIds.push({
+          id:this.plotIds[index],
+          active
+        });
         this.state.tools.map.toggled = this.tools.reduce((accumulator, current, index) => {
           const active = current.geolayer.active;
-          active && plotIds.push(this.plotIds[index]);
+          active && plotIds.push({
+            id: this.plotIds[index],
+            active
+          });
           return accumulator && (current.geolayer.show ? active : true)
         },true);
         if (!this.state.tools.map.toggled && plotIds.length > 0) {
@@ -74,6 +81,10 @@
           this.charts.plotIds.find((loadedPlotId, loadedIndex) => {
             if (loadedPlotId === plotId) {
               this.charts.data[loadedIndex] = charts.data[index];
+              this.charts.filters[loadedIndex].splice(0);
+              charts.filters[index].forEach(filter =>{
+                this.charts.filters[loadedIndex].push(filter)
+              });
               this.drawPlotlyChart(loadedIndex, true);
               return true
             }
@@ -108,7 +119,10 @@
         if (this.charts.data[index] && Array.isArray(this.charts.data[index].x) && this.charts.data[index].x.length) {
           const data = [this.charts.data[index]];
           const layout = this.charts.layout[index];
-          Plotly.newPlot(content_div, data , layout, config);
+          if (replace) content_div.innerHTML = '';
+          setTimeout(()=>{
+            Plotly.newPlot(content_div, data , layout, config);
+          })
         } else {
           let component = Vue.extend(NoDataComponent);
           component = new component({
@@ -153,9 +167,9 @@
     async mounted(){
       await this.$nextTick();
       this.getCharts = ({charts, subplots}) =>{
-        if (subplots){
-          this.replaceExistingCharts(charts);
-        } else {
+        // in case of subplots replace
+        if (subplots )this.replaceExistingCharts(charts);
+        else {
           this.charts = charts;
           this.handleDataLayout({
             charts

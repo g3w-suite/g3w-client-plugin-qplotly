@@ -39,14 +39,14 @@ function Service(){
   this.mainbboxtool = false;
   let layersId = new Set();
   this.init = function(config={}){
-   this.config = config;
-   this.chartContainers = [];
+    this.config = config;
+    this.chartContainers = [];
     this.changeChartsEventHandler = async layerId =>{
       // change if one of these condition is true
       const change = this.showCharts && !this.relationData && !!this.config.plots.find(plot=> this.customParams.bbox || plot.qgs_layer_id === layerId && plot.show);
       // in case of a filter is change on showed chart it redraw the chart
       if (change) {
-        const subplots = this.keyMapMoveendEvent.plotIds > 0;
+        const subplots = this.keyMapMoveendEvent.plotIds.length > 0;
         this.reloaddata = true;
         this.setBBoxParameter(subplots);
         try {
@@ -183,10 +183,6 @@ function Service(){
     if (plot.tools.geolayer.active) plot.filters.length ? plot.filters[0] = 'in_bbox_filtertoken' : plot.filters.push('in_bbox');
   };
 
-  this.showPlot = async function(){
-    await this.getChartsAndEmit();
-  };
-
   this.getChartsAndEmit = async function({subplots=false} ={}){
     const charts = await this.getCharts();
     this.emit('change-charts', {
@@ -195,19 +191,35 @@ function Service(){
     });
   };
 
-  this.hidePlot = async function(){
-   await this.getChartsAndEmit();
+  this.showPlot = async function(plot){
+    plot.tools.geolayer.active =  this.state.tools.map.toggled;
+    if (this.keyMapMoveendEvent.key){
+      this.keyMapMoveendEvent.plotIds.push({
+        id: plot.id,
+        active: this.state.tools.map.toggled
+      })
+    }
+    await this.getChartsAndEmit();
+  };
+
+  this.hidePlot = async function(plot){
+    if (this.keyMapMoveendEvent.key) this.keyMapMoveendEvent.plotIds = this.keyMapMoveendEvent.plotIds.filter(plotId => plot.id !== plotId.id);
+    if (this.keyMapMoveendEvent.plotIds.length === 0)
+      this.customParams.bbox = void 0;
+    await this.getChartsAndEmit();
   };
 
   this.getPlots = function(){
     return this.config.plots;
   };
 
-  this.clearLoadedPlots = function () {
+  this.clearLoadedPlots = function() {
     this.loadedplots = {};
     this.state.tools.map.toggled = false;
     this.customParams.bbox = undefined;
-    this.mapService.getMap().un('moveend', this.changeChartsEventHandler);
+    this.handleKeyMapMoveendEvent({
+      listen: false
+    });
     this.showCharts = false;
   };
 
@@ -228,7 +240,7 @@ function Service(){
   this.handleKeyMapMoveendEvent = function({listen=false, plotIds=[]}={}){
     if (listen) {
       this.keyMapMoveendEvent.plotIds = plotIds;
-      if (this.keyMapMoveendEvent.key === null) this.keyMapMoveendEvent.key = this.mapService.getMap().on('moveend', this.changeChartsEventHandler)
+      this.keyMapMoveendEvent.key =  this.keyMapMoveendEvent.key || this.mapService.getMap().on('moveend', this.changeChartsEventHandler);
     } else {
       ol.Observable.unByKey(this.keyMapMoveendEvent.key);
       this.keyMapMoveendEvent.key = null;
@@ -240,12 +252,18 @@ function Service(){
   this.showMapFeaturesAllCharts = async function(change){
     this.mainbboxtool = true;
     this.reloaddata = true;
-    // unregister map event for all chart
     this.state.tools.map.toggled = change ? !this.state.tools.map.toggled: this.state.tools.map.toggled;
     this.setBBoxParameter();
+    const plotIds = this.config.plots.filter(plot => {
+      plot.tools.geolayer.active = this.state.tools.map.toggled;
+      return plot.show && plot.tools.geolayer.active
+    }).map(plot => ({
+        id: plot.id,
+        active: true
+    }));
     this.handleKeyMapMoveendEvent({
       listen: this.state.tools.map.toggled,
-      plotIds:[]
+      plotIds
     });
     try {
       const charts = await this.getCharts();
@@ -276,7 +294,9 @@ function Service(){
     }
     this.resetPlotDynamicValues();
     return new Promise(resolve => {
-      const plots = layerIds || this.keyMapMoveendEvent.plotIds.length > 0 ? this.config.plots.filter(plot => layerIds ? layerIds.indexOf(plot.qgs_layer_id) !== -1: this.keyMapMoveendEvent.plotIds.indexOf(plot.id) !== -1) :
+      const plots = layerIds || this.keyMapMoveendEvent.plotIds.length > 0 ?
+        (this.config.plots.filter(plot => layerIds ? layerIds.indexOf(plot.qgs_layer_id) !== -1:
+        this.keyMapMoveendEvent.plotIds.map(plotId => plotId.id).indexOf(plot.id) !== -1)) :
         this.config.plots.filter(plot => plot.show);
       const charts = {
         data: [],
@@ -319,7 +339,7 @@ function Service(){
               relation:true
             });
           } else {
-            const addInBBoxParam = this.keyMapMoveendEvent.plotIds.length > 0 ? this.keyMapMoveendEvent.plotIds.indexOf(plot.id) !== -1 : true;
+            const addInBBoxParam = this.keyMapMoveendEvent.plotIds.length > 0 ? this.keyMapMoveendEvent.plotIds.filter(plotIds => plotIds.active).map(plotId => plotId.id).indexOf(plot.id) !== -1 : true;
             const withrelations = plot.withrelations && plot.withrelations.length ? plot.withrelations.join(',') : undefined;
             const relationonetomany = this.relationData ? `${this.relationData.relations.find(relation => plot.qgs_layer_id === relation.referencingLayer).id}|${this.relationData.fid}` : undefined;
             const in_bbox = addInBBoxParam ? this.customParams.bbox : void 0;
@@ -367,7 +387,6 @@ function Service(){
                           charts.filters[_index] = plot.filters;
                           charts.layout[_index] = layout;
                           charts.plotIds[_index] = plot.id;
-                          this.setActivePlotToolGeolayer(plot);
                           charts.tools[_index] = plot.tools;
                           charts.layersId[_index] = plot.qgs_layer_id;
                           return true;
@@ -386,7 +405,6 @@ function Service(){
                 charts.filters[rootindex] = plot.filters;
                 charts.layout[rootindex] = plot.plot.layout;
                 charts.plotIds[rootindex] = plot.id;
-                this.setActivePlotToolGeolayer(plot);
                 charts.tools[rootindex] = plot.tools;
                 charts.layersId[rootindex] = plot.qgs_layer_id;
 
@@ -395,7 +413,6 @@ function Service(){
                 charts.data[rootindex] = null;
                 charts.filters[rootindex] = plot.filters;
                 charts.plotIds[rootindex] = plot.id;
-                this.setActivePlotToolGeolayer(plot);
                 charts.tools[rootindex] = plot.tools;
                 charts.layersId[rootindex] = plot.qgs_layer_id;
               }
@@ -407,10 +424,19 @@ function Service(){
             }
             if (this.relationData) this.state.loading = false;
             this.showCharts = true;
+            this.removeInactivePlotIds();
+            // reset active false plot Id afte call
             resolve(charts);
           })
       }
     });
+  };
+
+  this.removeInactivePlotIds = function(){
+    if (!this.state.tools.map.toggled){
+      this.keyMapMoveendEvent.plotIds = this.keyMapMoveendEvent.plotIds.filter(plotId => plotId.active);
+      this.keyMapMoveendEvent.plotIds.length === 0 && this.keyMapMoveendEvent.key && this.handleKeyMapMoveendEvent({listen: false});
+    }
   };
 
   this.getChartLayout = function (id) {

@@ -6,7 +6,9 @@
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF;" :style="{height: `${height}%`}">
       <div v-for="(plotly_div, index) in plotly_divs" style="position:relative; display: flex; justify-content: center; flex-direction: column; align-items: center" :style="{height: `${100/plotly_divs.length}%`}">
-        <filtersinfo :title="titles[index]" :filters="filters[index]"></filtersinfo>
+        <plotheader @toggle-bbox-tool="handleBBoxTools"  @toggle-filter-tool="handleToggleFilter"
+          :index="index" :layerId="layersId[index]" :tools="tools[index]" :title="titles[index]" :filters="filters[index]">
+        </plotheader>
         <div class="plot_div_content" :ref="plotly_div" style="position:relative; width:100%; height: 100%;"></div>
       </div>
     </div>
@@ -17,8 +19,8 @@
 </template>
 
 <script>
+  import PlotHeader from './plotheader.vue';
   const NoDataComponent = require('./nodata');
-  const FiltersInfo = require('./filtersinfo');
   const { tPlugin } = g3wsdk.core.i18n;
   const GUI = g3wsdk.gui.GUI;
   const {getUniqueDomId} = g3wsdk.core.utils;
@@ -27,7 +29,7 @@
     name: "qplotly",
     mixins: [resizeMixin],
     components: {
-      filtersinfo: FiltersInfo
+      plotheader: PlotHeader
     },
     data(){
       this.id = getUniqueDomId();
@@ -40,7 +42,10 @@
         height: 100,
         plotly_divs: [],
         filters:[],
-        titles:[]
+        tools: [],
+        titles:[],
+        layersId: [],
+        plotIds: []
       }
     },
     computed:{
@@ -49,6 +54,32 @@
       }
     },
     methods: {
+      handleToggleFilter({layerId}={}){
+        this.$options.service.toggleLayerFilter(layerId);
+      },
+      async handleBBoxTools(){
+        const plotIds = [];
+        this.state.tools.map.toggled = this.tools.reduce((accumulator, current, index) => {
+          const active = current.geolayer.active;
+          active && plotIds.push(this.plotIds[index]);
+          return accumulator && (current.geolayer.show ? active : true)
+        },true);
+        if (!this.state.tools.map.toggled && plotIds.length > 0) {
+          const charts = await this.$options.service.showMapFeaturesSubPlotsCharts(plotIds);
+          this.replaceExistingCharts(charts);
+        } else this.showMapFeaturesCharts(false)
+      },
+      replaceExistingCharts(charts){
+        charts.plotIds.forEach((plotId, index) =>{
+          this.charts.plotIds.find((loadedPlotId, loadedIndex) => {
+            if (loadedPlotId === plotId) {
+              this.charts.data[loadedIndex] = charts.data[index];
+              this.drawPlotlyChart(loadedIndex, true);
+              return true
+            }
+          })
+        })
+      },
       resize(){
         try {
           this.plotly_divs.forEach(plot_div =>{
@@ -66,13 +97,32 @@
         this.plotly_divs.splice(0);
         this.filters.splice(0);
         this.titles.splice(0);
+        this.tools.splice(0);
+        this.layersId.splice(0);
+        this.plotIds.splice(0);
         await this.$nextTick();
-
+      },
+      drawPlotlyChart(index, replace=false){
+        const config = this.$options.service.getChartConfig();
+        const content_div = this.$refs[this.plotly_divs[index]][0];
+        if (this.charts.data[index] && Array.isArray(this.charts.data[index].x) && this.charts.data[index].x.length) {
+          const data = [this.charts.data[index]];
+          const layout = this.charts.layout[index];
+          Plotly.newPlot(content_div, data , layout, config);
+        } else {
+          let component = Vue.extend(NoDataComponent);
+          component = new component({
+            propsData: {
+              title: `Plot [${this.charts.plotIds[index]}] ${this.charts.layout[index] && this.charts.layout[index].title ? ' - ' + this.charts.layout[index].title: ''} `
+            }
+          });
+          replace && content_div.firstChild.remove();
+          setTimeout(()=> content_div.appendChild(component.$mount().$el));
+        }
       },
       async handleDataLayout({charts={}}={}){
         this.show = false;
         await this.clearPlotlyData();
-        const config = this.$options.service.getChartConfig();
         const dataLength = charts.data.length;
         const addedHeight = (this.relationData && this.relationData.height ? dataLength * 50 : (dataLength > 2 ? dataLength - 2 : 0) * 50 );
         this.height = 100 + addedHeight;
@@ -83,29 +133,18 @@
             this.plotly_divs.push(`plot_div_${i}`);
             this.titles.push(charts.layout[i].title.toUpperCase());
             this.filters.push((charts.filters[i]));
+            this.tools.push(charts.tools[i]);
+            this.layersId.push(charts.layersId[i]);
+            this.plotIds.push(charts.plotIds[i]);
           }
           await this.$nextTick();
           for (let i = 0; i < dataLength; i++) {
-            const content_div = this.$refs[this.plotly_divs[i]][0];
-            if (charts.data[i] && Array.isArray(charts.data[i].x) && charts.data[i].x.length) {
-              const data = [charts.data[i]];
-              const layout = charts.layout[i];
-              Plotly.newPlot(content_div, data , layout, config);
-            } else {
-              let component = Vue.extend(NoDataComponent);
-              component = new component({
-                propsData: {
-                  title: `Plot [${charts.plotIds[i]}] ${charts.layout[i] && charts.layout[i].title ? ' - ' + charts.layout[i].title: ''} `
-                }
-              });
-              content_div.appendChild(component.$mount().$el)
-            }
+           this.drawPlotlyChart(i);
           }
         }
-
       },
-      showMapFeaturesCharts(){
-        this.$options.service.showMapFeaturesCharts();
+      showMapFeaturesCharts(change=true){
+        this.$options.service.showMapFeaturesAllCharts(change);
       }
     },
     beforeCreate(){
@@ -113,15 +152,25 @@
     },
     async mounted(){
       await this.$nextTick();
-      this.getCharts = async charts =>{
-        this.handleDataLayout({
-          charts
-        })
+      this.getCharts = ({charts, subplots}) =>{
+        if (subplots){
+          this.replaceExistingCharts(charts);
+        } else {
+          this.charts = charts;
+          this.handleDataLayout({
+            charts
+          })
+        }
+
       };
       this.$options.service.on('change-charts', this.getCharts);
-      const charts = await this.$options.service.getCharts(this.$options.ids, this.relationData);
+      const charts = await this.$options.service.getCharts({
+        layersIds: this.$options.ids,
+        relationData: this.relationData
+      });
       this.show = charts.data.length > 0;
       if (this.show) {
+        this.charts = charts;
         await this.handleDataLayout({
           charts
         });
@@ -133,6 +182,7 @@
       this.relationData && GUI.off('pop-content', this.resize);
       this.$options.service.clearLoadedPlots();
       this.clearPlotlyData();
+      this.charts = null;
     }
   }
 </script>

@@ -37,6 +37,7 @@
       this.id = getUniqueDomId();
       this.wrapped = !!this.$options.ids;
       this.relationData = this.$options.relationData;
+      this.draw = true;
       return {
         state: this.$options.service.state,
         show: true,
@@ -118,24 +119,26 @@
         await this.$nextTick();
       },
       drawPlotlyChart(index, replace=false){
-        const config = this.$options.service.getChartConfig();
-        const content_div = this.$refs[this.plotly_divs[index]][0];
-        if (this.charts.data[index] && Array.isArray(this.charts.data[index].x) && this.charts.data[index].x.length) {
-          const data = [this.charts.data[index]];
-          const layout = this.charts.layout[index];
-          if (replace) content_div.innerHTML = '';
-          setTimeout(()=>{
-            Plotly.newPlot(content_div, data , layout, config);
-          })
-        } else {
-          let component = Vue.extend(NoDataComponent);
-          component = new component({
-            propsData: {
-              title: `Plot [${this.charts.plotIds[index]}] ${this.charts.layout[index] && this.charts.layout[index].title ? ' - ' + this.charts.layout[index].title: ''} `
-            }
-          });
-          replace && content_div.firstChild.remove();
-          setTimeout(()=> content_div.appendChild(component.$mount().$el));
+        if (this.draw) {
+          const config = this.$options.service.getChartConfig();
+          const content_div = this.$refs[this.plotly_divs[index]][0];
+          if (this.charts.data[index] && Array.isArray(this.charts.data[index].x) && this.charts.data[index].x.length) {
+            const data = [this.charts.data[index]];
+            const layout = this.charts.layout[index];
+            if (replace) content_div.innerHTML = '';
+            setTimeout(()=>{
+              Plotly.newPlot(content_div, data , layout, config);
+            })
+          } else {
+            let component = Vue.extend(NoDataComponent);
+            component = new component({
+              propsData: {
+                title: `Plot [${this.charts.plotIds[index]}] ${this.charts.layout[index] && this.charts.layout[index].title ? ' - ' + this.charts.layout[index].title: ''} `
+              }
+            });
+            replace && content_div.firstChild.remove();
+            setTimeout(()=> content_div.appendChild(component.$mount().$el));
+          }
         }
       },
       async handleDataLayout({charts={}}={}){
@@ -146,7 +149,7 @@
         this.height = 100 + addedHeight;
         this.overflowY = addedHeight > 0 ? 'auto' : 'none';
         this.show = dataLength > 0;
-        if (dataLength > 0) {
+        if (this.draw && dataLength > 0) {
           for (let i=0; i < dataLength; i++){
             this.plotly_divs.push(`plot_div_${i}`);
             this.titles.push(charts.layout[i].title.toUpperCase());
@@ -196,11 +199,13 @@
       }
     },
     beforeDestroy() {
+      this.draw = false;
       this.$options.service.off('change-charts', this.getCharts);
       this.relationData && GUI.off('pop-content', this.resize);
       this.$options.service.clearLoadedPlots();
       this.clearPlotlyData();
       this.charts = null;
+      this.draw = null;
     }
   }
 </script>

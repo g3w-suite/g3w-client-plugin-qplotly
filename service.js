@@ -1,6 +1,5 @@
-import { charts as chartsConfig } from './config/app'
 import MultiPlot from './components/sidebar/multiplot';
-const { base, inherit, XHR ,debounce} =  g3wsdk.core.utils;
+const { base, inherit, XHR } =  g3wsdk.core.utils;
 const GUI = g3wsdk.gui.GUI;
 const ApplicationState = g3wsdk.core.ApplicationState;
 const ComponentsFactory = g3wsdk.gui.ComponentsFactory;
@@ -138,7 +137,14 @@ function Service(){
         events: {
           open: {
             when: 'before',
-            cb: bool => this.showChart(bool)
+            disabled: this.state.chartsloading,
+            cb: async bool => {
+              bool && QPlotlySiderBarComponent.emit('disable-sidebar', true);
+              await this.showChart(bool);
+              bool && setTimeout(()=>{
+                QPlotlySiderBarComponent.emit('disable-sidebar', false);
+              },500)
+            }
           }
         }
       }
@@ -456,42 +462,45 @@ function Service(){
   };
 
   this.showChart = function(bool, ids, container, relationData){
-    if (bool) {
-      setTimeout(()=>{
-        const content =  new QPlotlyComponent({
-          service: this,
-          ids,
-          relationData
-        });
-        if (container) {
+    return new Promise((resolve) =>{
+      if (bool) {
+        setTimeout(()=>{
+          const content =  new QPlotlyComponent({
+            service: this,
+            ids,
+            relationData
+          });
           const component = content.getInternalComponent();
-          component.$once('hook:mounted', async function(){
-            container.append(this.$el);
-            GUI.emit('resize');
-          });
-          component.$mount();
-          this.chartContainers.find(queryResultsContainer => container.selector === queryResultsContainer.container.selector).component = component;
-        } else {
-          this.mapService.deactiveMapControls();
-          GUI.showContent({
-            closable: false,
-            title: 'plugins.qplotly.title',
-            style: {
-              title: {
-                fontSize: '1.3em',
-                marginBottom: '20px'
-              }
-            },
-            content,
-            perc: 50
-          });
-        }
-      }, 300)
-    } else {
-      if (container)
-        this.clearChartContainers(container);
-      else GUI.closeContent();
-    }
+          if (container) {
+            component.$once('hook:mounted', async function(){
+              container.append(this.$el);
+              GUI.emit('resize');
+            });
+            component.$mount();
+            this.chartContainers.find(queryResultsContainer => container.selector === queryResultsContainer.container.selector).component = component;
+          } else {
+            component.$once('ready', ()=> resolve());
+            this.mapService.deactiveMapControls();
+            GUI.showContent({
+              closable: false,
+              title: 'plugins.qplotly.title',
+              style: {
+                title: {
+                  fontSize: '1.3em',
+                  marginBottom: '20px'
+                }
+              },
+              content,
+              perc: 50
+            });
+          }
+        })
+      } else {
+        if (container) this.clearChartContainers(container);
+        else GUI.closeContent();
+        resolve();
+      }
+    })
   };
 
   this.clear = function(){

@@ -195,8 +195,9 @@
         await this.handleDataLayout({
           charts
         });
-        this.relationData && GUI.on('pop-content', this.resize)
-      }
+        this.relationData && GUI.on('pop-content', this.resize);
+        this.$emit('ready')
+      } else this.$emit('ready')
     },
     beforeDestroy() {
       this.draw = false;

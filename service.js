@@ -9,6 +9,9 @@ const QPlotlyComponent = require('./components/content/qplotly');
 let BASEQPLOTLYAPIURL = '/qplotly/api/trace';
 
 function Service(){
+  this.setters = {
+    chartsReady(){} // hook clled when drowed chart is show
+  };
   base(this);
   this.mapService = GUI.getComponent('map').getService();
   this.loadedplots = {};
@@ -16,7 +19,6 @@ function Service(){
   this.showCharts = false;
   this.state = Vue.observable({
     loading: false,
-    chartsloading: false,
     geolayer: false,
     tools: {
       map: {
@@ -137,7 +139,6 @@ function Service(){
         events: {
           open: {
             when: 'before',
-            disabled: this.state.chartsloading,
             cb: async bool => {
               bool && QPlotlySiderBarComponent.emit('disable-sidebar', true);
               await this.showChart(bool);
@@ -300,10 +301,12 @@ function Service(){
     this.relationData = this.reloaddata ? this.relationData : relationData;
     if (this.relationData) this.state.loading = true;
     if (!layerIds) {
-      this.emit('charts-loading', true);
-      this.state.chartsloading = true;
       await GUI.setLoadingContent(true);
     }
+    this.onceafter('chartsReady', async ()=>{
+      if (!layerIds) await GUI.setLoadingContent(false);
+      if (this.relationData) this.state.loading = false;
+    });
     this.resetPlotDynamicValues();
     return new Promise(resolve => {
       const plots = layerIds || this.keyMapMoveendEvent.plotIds.length > 0 ?
@@ -410,10 +413,6 @@ function Service(){
                 }
                 plot = plots[rootindex];
                 plot.plot.layout.title = plot.plot.layout._title;
-                /*this.loadedplots[plot.id] = {
-                  result: true,
-                  data
-                };*/
                 charts.data[rootindex] = data[0] ;
                 this.setActivePlotToolGeolayer(plot);
                 charts.filters[rootindex] = plot.filters;
@@ -421,7 +420,6 @@ function Service(){
                 charts.plotIds[rootindex] = plot.id;
                 charts.tools[rootindex] = plot.tools;
                 charts.layersId[rootindex] = plot.qgs_layer_id;
-
               } else  {
                 plot = plots[rootindex];
                 charts.data[rootindex] = null;
@@ -432,12 +430,6 @@ function Service(){
                 charts.layersId[rootindex] = plot.qgs_layer_id;
               }
             });
-            if (!layerIds) {
-              this.emit('charts-loading', false);
-              this.state.chartsloading = false;
-              await GUI.setLoadingContent(false);
-            }
-            if (this.relationData) this.state.loading = false;
             this.showCharts = true;
             this.removeInactivePlotIds();
             resolve(charts);
@@ -462,7 +454,7 @@ function Service(){
   };
 
   this.showChart = function(bool, ids, container, relationData){
-    return new Promise((resolve) =>{
+    return new Promise(resolve =>{
       if (bool) {
         setTimeout(()=>{
           const content =  new QPlotlyComponent({
@@ -479,7 +471,10 @@ function Service(){
             component.$mount();
             this.chartContainers.find(queryResultsContainer => container.selector === queryResultsContainer.container.selector).component = component;
           } else {
-            component.$once('ready', ()=> resolve());
+            // called from sidebar component
+            this.onceafter('chartsReady', ()=> {
+              resolve()
+            });
             this.mapService.deactiveMapControls();
             GUI.showContent({
               closable: false,

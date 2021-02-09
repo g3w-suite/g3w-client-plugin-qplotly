@@ -94,7 +94,8 @@
               return true
             }
           })
-        })
+        });
+        this.$options.service.chartsReady();
       },
       resize(){
         try {
@@ -163,6 +164,9 @@
            this.drawPlotlyChart(i);
           }
         }
+        await this.$nextTick();
+        // call ready
+        this.$options.service.chartsReady();
       },
       showMapFeaturesCharts(change=true){
         this.$options.service.showMapFeaturesAllCharts(change);
@@ -196,8 +200,7 @@
           charts
         });
         this.relationData && GUI.on('pop-content', this.resize);
-        this.$emit('ready')
-      } else this.$emit('ready')
+      } else this.$options.service.chartsReady();
     },
     beforeDestroy() {
       this.draw = false;

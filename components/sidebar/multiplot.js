@@ -1,4 +1,3 @@
-import {charts} from '../../config/app';
 const template = require('./multiplot.html');
 
 export default function MultiPlot({service}={}){

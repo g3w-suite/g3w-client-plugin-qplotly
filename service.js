@@ -156,13 +156,13 @@ function Service(){
 
     GUI.addComponent(QPlotlySiderBarComponent, 'sidebar', options);
 
-    this.mapService.onbefore('controlClick', ({target})=>{
+    /*this.mapService.onbefore('controlClick', ({target})=>{
       if (target.name !== 'zoombox' && QPlotlySiderBarComponent.getOpen()) {
         QPlotlySiderBarComponent.click({
           open: false
         });
       }
-    });
+    });*/
 
     this.once('clear', () => GUI.removeComponent('qplotly', 'sidebar', options));
   };
@@ -475,7 +475,7 @@ function Service(){
             this.onceafter('chartsReady', ()=> {
               resolve()
             });
-            this.mapService.deactiveMapControls();
+            //this.mapService.deactiveMapControls();
             GUI.showContent({
               closable: false,
               title: 'plugins.qplotly.title',

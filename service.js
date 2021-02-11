@@ -140,10 +140,10 @@ function Service(){
           open: {
             when: 'before',
             cb: async bool => {
-              bool && QPlotlySiderBarComponent.emit('disable-sidebar', true);
+              bool && GUI.disableSideBar(true);
               await this.showChart(bool);
               bool && setTimeout(()=>{
-                QPlotlySiderBarComponent.emit('disable-sidebar', false);
+                GUI.disableSideBar(false);
               },500)
             }
           }

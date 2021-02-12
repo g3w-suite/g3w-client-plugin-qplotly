@@ -300,9 +300,7 @@ function Service(){
   this.getCharts = async function({layerIds, relationData}={}){
     this.relationData = this.reloaddata ? this.relationData : relationData;
     if (this.relationData) this.state.loading = true;
-    if (!layerIds) {
-      await GUI.setLoadingContent(true);
-    }
+    if (!layerIds) await GUI.setLoadingContent(true);
     this.onceafter('chartsReady', async ()=>{
       if (!layerIds) await GUI.setLoadingContent(false);
       if (this.relationData) this.state.loading = false;

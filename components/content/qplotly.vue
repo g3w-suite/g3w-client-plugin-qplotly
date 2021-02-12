@@ -146,7 +146,7 @@
         this.show = false;
         await this.clearPlotlyData();
         const dataLength = charts.data.length;
-        const addedHeight = (this.relationData && this.relationData.height ? dataLength * 50 : (dataLength > 2 ? dataLength - 2 : 0) * 50 );
+        const addedHeight = (this.relationData && this.relationData.height ? (dataLength > 1 ? dataLength * 50: 0) : (dataLength > 2 ? dataLength - 2 : 0) * 50 );
         this.height = 100 + addedHeight;
         this.overflowY = addedHeight > 0 ? 'auto' : 'none';
         this.show = dataLength > 0;
@@ -189,8 +189,9 @@
 
       };
       this.$options.service.on('change-charts', this.getCharts);
+
       const charts = await this.$options.service.getCharts({
-        layersIds: this.$options.ids,
+        layerIds: this.$options.ids,
         relationData: this.relationData
       });
       this.show = charts.data.length > 0;

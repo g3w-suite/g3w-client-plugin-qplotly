@@ -10,7 +10,7 @@ let BASEQPLOTLYAPIURL = '/qplotly/api/trace';
 
 function Service(){
   this.setters = {
-    chartsReady(){} // hook clled when drowed chart is show
+    chartsReady(){} // hook called when chart is show
   };
   base(this);
   this.mapService = GUI.getComponent('map').getService();
@@ -48,6 +48,10 @@ function Service(){
       // in case of a filter is change on showed chart it redraw the chart
       if (change) {
         const subplots = this.keyMapMoveendEvent.plotIds.length > 0;
+        subplots && this.keyMapMoveendEvent.plotIds.forEach(plotId => {
+          const plot = this.config.plots.find(plot => plot.id !== plotId);
+          if (plot) plot.loaded = false;
+        });
         this.reloaddata = true;
         this.setBBoxParameter(subplots);
         try {
@@ -60,6 +64,7 @@ function Service(){
      plot.show = index === 0;
      plot.withrelations = null;
      plot.request = true;
+     plot.loaded = plot.show;
      plot.plot.layout._title = plot.plot.layout.title;
      plot.label = plot.plot.layout.title ||  `Plot id [${plot.id}]`;
      // set automargin
@@ -142,9 +147,9 @@ function Service(){
             cb: async bool => {
               bool && GUI.disableSideBar(true);
               await this.showChart(bool);
-              bool && setTimeout(()=>{
+              bool ? setTimeout(()=>{
                 GUI.disableSideBar(false);
-              },500)
+              },500) : this.config.plots.forEach(plot => plot.loaded = false);
             }
           }
         }
@@ -205,7 +210,11 @@ function Service(){
         active: this.state.tools.map.toggled
       })
     }
-    await this.getChartsAndEmit();
+    if (plot.loaded) this.emit('show-hide-chart', {plotId:plot.id, action: 'show'});
+    else {
+      await this.getChartsAndEmit();
+      plot.loaded = true;
+    }
   };
 
   this.hidePlot = async function(plot){
@@ -214,8 +223,11 @@ function Service(){
       this.customParams.bbox = void 0;
       this.state.tools.map.toggled = false;
     }
-
-    await this.getChartsAndEmit();
+    this.emit('show-hide-chart', {
+      plotId:plot.id,
+      action: 'hide'
+    } );
+    //await this.getChartsAndEmit();
   };
 
   this.getPlots = function(){

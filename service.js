@@ -42,7 +42,7 @@ function Service(){
   this.init = function(config={}){
     this.config = config;
     this.chartContainers = [];
-    this.changeChartsEventHandler = async layerId =>{
+    this.changeChartsEventHandler = async ({layerId}={}) =>{
       // change if one of these condition is true
       const change = this.showCharts && !this.relationData && !!this.config.plots.find(plot=> this.customParams.bbox || plot.qgs_layer_id === layerId && plot.show);
       // in case of a filter is change on showed chart it redraw the chart
@@ -58,6 +58,9 @@ function Service(){
           await this.getChartsAndEmit({subplots});
         } catch(e){}
         this.reloaddata = false;
+      } else if (layerId) {
+        const plot = this.config.plots.find(plot => plot.id === layerId);
+        plot.loaded = false;
       }
     };
     this.config.plots.forEach((plot, index)=>{

@@ -1,17 +1,17 @@
 <template>
-  <div :id="id" class="skin-color" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
+  <div :id="id" class="skin-color" style="position: relative" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
     <div v-if="showtools" class="qplotly-tools" style="border-radius: 3px; background-color: #FFFFFF; display: flex; padding: 3px; position: absolute; top: 3px; font-size:1.4em; right: 15px;">
       <span class="skin-color action-button skin-tooltip-bottom" data-placement="bottom" data-toggle="tooltip" style="font-weight: bold; margin-left: 2px"
         :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']"
         @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></span>
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
-    <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF;" :style="{height: `${height}%`}">
-      <div v-for="(plotly_div, index) in plotly_divs" :key="plotly_div" style="position:relative; display: flex; justify-content: center; flex-direction: column; align-items: center" :style="{height: `${100/plotly_divs.length}%`}">
+    <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; position: relative" :style="{height: `${height}%`}">
+      <div v-for="(plotly_div, index) in plotly_divs" :key="plotly_div" style="position:relative; display: flex; justify-content: center; flex-direction: column; align-items: center"  :style="{height: `${100/plotly_divs.length}%`}">
         <plotheader @toggle-bbox-tool="handleBBoxTools"  @toggle-filter-tool="handleToggleFilter"
-          :index="index" :layerId="layersId[index]" :tools="tools[index]" :title="titles[index]" :filters="filters[index]">
+          :index="index" :layerId="layersId[index]" :tools="relationData && tools[index]" :title="titles[index]" :filters="filters[index]">
         </plotheader>
-        <div class="plot_div_content" :id="plotly_div" :ref="plotly_div" style="position:relative; width:100%; height: 100%;"></div>
+        <div class="plot_div_content" :id="plotly_div" :ref="plotly_div" style="width:100%;"  ></div>
       </div>
     </div>
     <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
@@ -89,24 +89,39 @@
         });
         return index;
       },
+      getPlotlyIdByIndex(index){
+        return `plot_div_${index}`;
+      },
       /*
       action: 'show', 'hide'
       * */
       async showHideChart({plotId, action}){
         const index = this.findChartIndex(plotId);
+        const plotly_div_id = this.getPlotlyIdByIndex(index);
         switch(action){
           case 'hide':
-            this.plotly_divs.splice(index, 1);
+            this.plotly_divs = this.plotly_divs.filter(plot_div => plot_div !== plotly_div_id);
+            this.$nextTick();
             this.show = this.plotly_divs.length > 0;
             await this.calculateHeigths();
+            this.show && this.plotly_divs.forEach(plot_div =>{
+              const content_div = this.$refs[plot_div][0];
+              this.setChartPlotHeigth(content_div);
+            });
             break;
           case 'show':
-            this.plotly_divs.splice(index, 0, `plot_div_${index}`);
             this.show = true;
             await this.$nextTick();
-            await this.calculateHeigths();
+            this.plotly_divs.splice(index, 0, plotly_div_id);
             await this.$nextTick();
+            this.calculateHeigths();
             this.drawPlotlyChart(index);
+            this.plotly_divs.forEach((plot_div, _index) =>{
+              if (_index !== index) {
+                const content_div = this.$refs[plot_div][0];
+                this.setChartPlotHeigth(content_div);
+              }
+            });
             break;
         }
         this.show && this.resize();
@@ -134,6 +149,7 @@
           this.plotly_divs.forEach(plot_div =>{
             const content_div = this.$refs[plot_div][0];
             Plotly.Plots.resize(content_div);
+            this.setChartPlotHeigth(content_div);
           });
           Plotly.Plots.react();
         } catch (e) {}
@@ -151,17 +167,20 @@
         this.plotIds.splice(0);
         await this.$nextTick();
       },
+      setChartPlotHeigth(content_div){
+        const jqueryContent = $(content_div);
+        content_div.style.height = `${jqueryContent.parent().outerHeight() - jqueryContent.siblings().outerHeight()}px`;
+      },
       drawPlotlyChart(index, replace=false){
         if (this.draw) {
           const config = this.$options.service.getChartConfig();
-          const content_div = this.$refs[this.plotly_divs[index]][0];
+          const content_div = this.$refs[this.getPlotlyIdByIndex(index)][0];
+          this.setChartPlotHeigth(content_div);
           if (this.charts.data[index] && Array.isArray(this.charts.data[index].x) && this.charts.data[index].x.length) {
             const data = [this.charts.data[index]];
             const layout = this.charts.layout[index];
             if (replace) content_div.innerHTML = '';
-            setTimeout(()=>{
-              Plotly.newPlot(content_div, data , layout, config);
-            })
+            Plotly.newPlot(content_div, data , layout, config);
           } else {
             let component = Vue.extend(NoDataComponent);
             component = new component({
@@ -190,7 +209,7 @@
         await this.calculateHeigths();
         if (this.draw && this.show) {
           for (let i=0; i < dataLength; i++){
-            this.plotly_divs.push(`plot_div_${i}`);
+            this.plotly_divs.push(this.getPlotlyIdByIndex(i));
             this.titles.push(charts.layout[i].title.toUpperCase());
             this.filters.push((charts.filters[i]));
             this.tools.push(charts.tools[i]);

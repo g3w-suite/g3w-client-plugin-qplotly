@@ -67,7 +67,7 @@ function Service(){
      plot.show = index === 0;
      plot.withrelations = null;
      plot.request = true;
-     plot.loaded = plot.show;
+     plot.loaded = false;//plot.show;
      plot.plot.layout._title = plot.plot.layout.title;
      plot.label = plot.plot.layout.title ||  `Plot id [${plot.id}]`;
      // set automargin
@@ -213,11 +213,16 @@ function Service(){
         active: this.state.tools.map.toggled
       })
     }
-    if (plot.loaded) this.emit('show-hide-chart', {plotId:plot.id, action: 'show'});
+    await this.getChartsAndEmit();
+    /*
+    if (plot.loaded) this.emit('show-hide-chart', {
+      plotId:plot.id,
+      action: 'show'}
+      );
     else {
       await this.getChartsAndEmit();
       plot.loaded = true;
-    }
+    }*/
   };
 
   this.hidePlot = async function(plot){
@@ -226,11 +231,11 @@ function Service(){
       this.customParams.bbox = void 0;
       this.state.tools.map.toggled = false;
     }
-    this.emit('show-hide-chart', {
-      plotId:plot.id,
-      action: 'hide'
-    } );
-    //await this.getChartsAndEmit();
+    // this.emit('show-hide-chart', {
+    //   plotId:plot.id,
+    //   action: 'hide'
+    // } );
+    await this.getChartsAndEmit();
   };
 
   this.getPlots = function(){

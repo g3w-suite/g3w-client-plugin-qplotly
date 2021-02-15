@@ -1,5 +1,5 @@
 <template>
-  <div :id="id" class="skin-color" style="position: relative" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
+  <div :id="id" class="skin-color" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
     <div v-if="showtools" class="qplotly-tools" style="border-radius: 3px; background-color: #FFFFFF; display: flex; padding: 3px; position: absolute; top: 3px; font-size:1.4em; right: 15px;">
       <span class="skin-color action-button skin-tooltip-bottom" data-placement="bottom" data-toggle="tooltip" style="font-weight: bold; margin-left: 2px"
         :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']"
@@ -9,7 +9,7 @@
     <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; position: relative" :style="{height: `${height}%`}">
       <div v-for="(plotly_div, index) in plotly_divs" :key="plotly_div" style="position:relative; display: flex; justify-content: center; flex-direction: column; align-items: center"  :style="{height: `${100/plotly_divs.length}%`}">
         <plotheader @toggle-bbox-tool="handleBBoxTools"  @toggle-filter-tool="handleToggleFilter"
-          :index="index" :layerId="layersId[index]" :tools="relationData && tools[index]" :title="titles[index]" :filters="filters[index]">
+          :index="index" :layerId="layersId[index]" :tools="!relationData && tools[index]" :title="titles[index]" :filters="filters[index]">
         </plotheader>
         <div class="plot_div_content" :id="plotly_div" :ref="plotly_div" style="width:100%;"  ></div>
       </div>

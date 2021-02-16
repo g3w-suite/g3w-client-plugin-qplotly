@@ -127,7 +127,8 @@ function Service(){
    queryResultService.addLayersPlotIds([...layersId]);
    queryResultService.on('show-chart', this.showChartsOnContainer);
    queryResultService.on('hide-chart', this.clearChartContainers);
-   this.closeComponentKeyEevent = queryResultService.onafter('closeComponent', this.clearChartContainers)
+   this.closeComponentKeyEevent = queryResultService.onafter('closeComponent', this.clearChartContainers);
+   this.setContentChartTools();
   };
 
   this.createSideBarComponent = function(){
@@ -230,6 +231,7 @@ function Service(){
         })
       }
     }
+    this.setContentChartTools();
     const reload = this.checkIfReload(plot);
     if (reload) await this.getChartsAndEmit();
     else {
@@ -246,15 +248,16 @@ function Service(){
 
   this.hidePlot = async function(plot){
     if (plot.tools.geolayer.show){
+      plot.tools.geolayer.active = false;
       if (this.keyMapMoveendEvent.key) this.keyMapMoveendEvent.plotIds = this.keyMapMoveendEvent.plotIds.filter(plotId => plot.id !== plotId.id);
       if (this.keyMapMoveendEvent.plotIds.length === 0) {
         this.customParams.bbox = void 0;
         this.state.tools.map.toggled = false;
       }
     };
+    this.setContentChartTools();
     // check if we had to reload based on relation
     const reload = this.checkIfReload(plot);
-    plot.tools.geolayer.active = false;
     this.setActiveFilters(plot);
     reload ? await this.getChartsAndEmit() : this.emit('show-hide-chart', {
       plotId:plot.id,
@@ -342,6 +345,10 @@ function Service(){
     })
   };
 
+  this.setContentChartTools = function(){
+    this.state.geolayer = !!this.config.plots.find(plot => plot.show && plot.tools.geolayer.show);
+  };
+
   this.getCharts = async function({layerIds, relationData}={}){
     this.relationData = this.reloaddata ? this.relationData : relationData;
     if (this.relationData) this.state.loading = true;
@@ -381,7 +388,6 @@ function Service(){
         })
       }
       // set main map visibile filter tool
-      this.state.geolayer = !!plots.find(plot => plot.tools.geolayer.show);
       // check if is supported
       if (Promise.allSettled) {
         const promises = [];

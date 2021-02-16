@@ -28,7 +28,6 @@ function Service(){
   });
   this.reloaddata = false;
   this.relationData = null;
-  this._relations = {};
   this._relationIdName = {};
   this.customParams = {
     bbox: undefined
@@ -59,7 +58,7 @@ function Service(){
         } catch(e){}
         this.reloaddata = false;
       } else if (layerId) {
-        const plot = this.config.plots.find(plot => plot.id === layerId);
+        const plot = this.config.plots.find(plot => plot.qgs_layer_id === layerId);
         plot.loaded = false;
       }
     };
@@ -67,7 +66,7 @@ function Service(){
      plot.show = index === 0;
      plot.withrelations = null;
      plot.request = true;
-     plot.loaded = false;//plot.show;
+     plot.loaded = plot.show;
      plot.plot.layout._title = plot.plot.layout.title;
      plot.label = plot.plot.layout.title ||  `Plot id [${plot.id}]`;
      // set automargin
@@ -87,17 +86,20 @@ function Service(){
          active: false
        }
      };
-     if (layer.isFather() && this._relations[layerId] === undefined){
+     // set relations
+     if (layer.isFather()){
        const relations = [];
        layer.getRelations().getArray().forEach(relation =>{
          relation.getFather() === layerId && relations.push({
-           id: relation.getId(),
-           relationLayer: relation.getChild()
+           id: relation.getId(), // relation id
+           relationLayer: relation.getChild(), // relation layer child
+           use: false // use to get data of related plot
          });
          this._relationIdName[relation.getId()] = relation.getName();
        });
-       this._relations[layerId] = relations;
+       plot.withrelations = relations
      }
+     
      layer.on('filtertokenchange', this.changeChartsEventHandler)
    });
    BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;
@@ -193,7 +195,9 @@ function Service(){
     this.emit('ready');
   };
 
-  this.setActivePlotToolGeolayer = function(plot){
+  this.setActiveFilters = function(plot){
+    plot.filters = [];
+    plot.tools.filter.active && plot.filters.push('filtertoken');
     if (plot.tools.geolayer.active) plot.filters.length ? plot.filters[0] = 'in_bbox_filtertoken' : plot.filters.push('in_bbox');
   };
 
@@ -203,6 +207,16 @@ function Service(){
       charts,
       subplots
     });
+  };
+
+  this.checkIfReload = function(plot) {
+    let reload = false;
+    plot.withrelations && plot.withrelations.forEach(plotrelation => {
+      this.config.plots.forEach(plot => {
+        reload = reload || plot.show && plot.qgs_layer_id === plotrelation.relationLayer
+      })
+    });
+    return reload;
   };
 
   this.showPlot = async function(plot){
@@ -216,16 +230,18 @@ function Service(){
         })
       }
     }
-    await this.getChartsAndEmit();
-    /*
-    if (plot.loaded) this.emit('show-hide-chart', {
-      plotId:plot.id,
-      action: 'show'}
-      );
+    const reload = this.checkIfReload(plot);
+    if (reload) await this.getChartsAndEmit();
     else {
-      await this.getChartsAndEmit();
-      plot.loaded = true;
-    }*/
+      if (plot.loaded) this.emit('show-hide-chart', {
+        plotId:plot.id,
+        action: 'show'}
+      );
+      else {
+        await this.getChartsAndEmit();
+        plot.loaded = true;
+      }
+    }
   };
 
   this.hidePlot = async function(plot){
@@ -235,12 +251,16 @@ function Service(){
         this.customParams.bbox = void 0;
         this.state.tools.map.toggled = false;
       }
-    }
-    this.emit('show-hide-chart', {
-       plotId:plot.id,
-       action: 'hide'
-     } );
-    //await this.getChartsAndEmit();
+    };
+    // check if we had to reload based on relation
+    const reload = this.checkIfReload(plot);
+    plot.tools.geolayer.active = false;
+    this.setActiveFilters(plot);
+    reload ? await this.getChartsAndEmit() : this.emit('show-hide-chart', {
+      plotId:plot.id,
+      action: 'hide',
+      filter: plot.filters
+    });
   };
 
   this.getPlots = function(){
@@ -256,7 +276,7 @@ function Service(){
     });
     this.config.plots.forEach(plot => {
       plot.tools.geolayer.active = false;
-      plot.filters = []
+      plot.filters = [];
     });
     this.showCharts = false;
   };
@@ -316,7 +336,7 @@ function Service(){
 
   this.resetPlotDynamicValues = function(){
     this.config.plots.forEach(plot  => {
-      plot.withrelations = null;
+      plot.withrelations && plot.withrelations.forEach(plotrelation => plotrelation.use = false);
       plot.request = true;
       plot.filters = [];
     })
@@ -349,29 +369,23 @@ function Service(){
       };
       // set plot id to show
       if (plots.length > 1) {
-        const layerwithrelations = []; // useful to save refence layerid al used to ask relation chartts
         plots.forEach(plot => {
-          const children = layerwithrelations.indexOf(plot.qgs_layer_id) < 0 && this._relations[plot.qgs_layer_id];
-          if (children) {
-            plot.withrelations = [];
-            children && children.forEach(({id, name,  relationLayer}) =>{
-              plots.forEach(_plot => {
-                _plot.request = !(_plot.qgs_layer_id === relationLayer);
-                !_plot.request && plot.withrelations.push(id);
-              });
-            });
-            if (plot.withrelations.length === 0) plot.withrelations = null;
-            else layerwithrelations.push(plot.qgs_layer_id);
-          }
+          plot.withrelations && plot.withrelations.forEach(plotrelation =>{
+            plots.forEach((plot, index) =>{
+              if (plot.qgs_layer_id === plotrelation.relationLayer) {
+                plotrelation.use = true;
+                plot.request = false;
+              }
+            })
+          })
         })
       }
       // set main map visibile filter tool
       this.state.geolayer = !!plots.find(plot => plot.tools.geolayer.show);
+      // check if is supported
       if (Promise.allSettled) {
         const promises = [];
         plots.forEach(plot => {
-          const layer = CatalogLayersStoresRegistry.getLayerById(plot.qgs_layer_id);
-          layer.getFilterActive() && plot.filters.push('filtertoken');
           let promise;
           // in case of no request (relation)
           if (!plot.request) {
@@ -381,7 +395,11 @@ function Service(){
             });
           } else {
             const addInBBoxParam = this.keyMapMoveendEvent.plotIds.length > 0 ? this.keyMapMoveendEvent.plotIds.filter(plotIds => plotIds.active).map(plotId => plotId.id).indexOf(plot.id) !== -1 : true;
-            const withrelations = plot.withrelations && plot.withrelations.length ? plot.withrelations.join(',') : undefined;
+            let withrelations;
+            if (plot.withrelations) {
+              const inuserelation = plot.withrelations.filter(plotrelation => plotrelation.use);
+              withrelations = inuserelation.length ? inuserelation.map(plotrelation=> plotrelation.id).join(','): void 0;
+            }
             const relationonetomany = this.relationData ? `${this.relationData.relations.find(relation => plot.qgs_layer_id === relation.referencingLayer).id}|${this.relationData.fid}` : undefined;
             const in_bbox = addInBBoxParam ? this.customParams.bbox : void 0;
             promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
@@ -407,7 +425,7 @@ function Service(){
                 plot = plots[rootindex];
                 plot.plot.layout.title = plot.plot.layout._title;
                 charts.data[rootindex] = data[0] ;
-                this.setActivePlotToolGeolayer(plot);
+                this.setActiveFilters(plot);
                 charts.filters[rootindex] = plot.filters;
                 charts.layout[rootindex] = plot.plot.layout;
                 charts.plotIds[rootindex] = plot.id;
@@ -417,7 +435,7 @@ function Service(){
                   Object.keys(relations).forEach( relationId =>{
                     const relationdata = relations[relationId];
                     relationdata.forEach(({id, data}) =>{
-                      const fatherPlot = plots.find(plot => plot.withrelations && plot.withrelations.indexOf(relationId) !== -1);
+                      const fatherPlot = plots.find(plot => plot.withrelations && !!plot.withrelations.find(plotrelation => plotrelation.id === relationId));
                       const fatherPlotFilters = fatherPlot && fatherPlot.filters;
                       plots.find((plot, index) => {
                         if (plot.id === id){
@@ -433,8 +451,8 @@ function Service(){
                           const layout = plot.plot.layout;
                           layout.title = `${this._relationIdName[relationId]} ${layout._title}`;
                           charts.data[_index] = data[0];
+                          this.setActiveFilters(plot);
                           if (fatherPlotFilters.length) plot.filters.push(`relation.${fatherPlotFilters[0]}`);
-                          this.setActivePlotToolGeolayer(plot);
                           charts.filters[_index] = plot.filters;
                           charts.layout[_index] = layout;
                           charts.plotIds[_index] = plot.id;
@@ -449,7 +467,7 @@ function Service(){
               } else  {
                 plot = plots[rootindex];
                 charts.data[rootindex] = null;
-                this.setActivePlotToolGeolayer(plot);
+                this.setActiveFilters(plot);
                 charts.filters[rootindex] = plot.filters;
                 charts.plotIds[rootindex] = plot.id;
                 charts.tools[rootindex] = plot.tools;

@@ -1,5 +1,6 @@
 import MultiPlot from './components/sidebar/multiplot';
 const { base, inherit, XHR } =  g3wsdk.core.utils;
+const { transformBBOX } = g3wsdk.core.geoutils;
 const GUI = g3wsdk.gui.GUI;
 const ApplicationState = g3wsdk.core.ApplicationState;
 const ComponentsFactory = g3wsdk.gui.ComponentsFactory;
@@ -14,6 +15,7 @@ function Service(){
   };
   base(this);
   this.mapService = GUI.getComponent('map').getService();
+  this.mapCrs = this.mapService.getCrs();
   this.loadedplots = {};
   this.loading = false;
   this.showCharts = false;
@@ -78,11 +80,13 @@ function Service(){
      layersId.add(layerId);
      // listen layer change filter to reload the charts
      const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
+     const geolayer = layer.isGeoLayer();
+     plot.crs = geolayer ? layer.getCrs() : undefined;
      plot.tools = {
        filter: layer.getFilter(),
        selection: layer.getSelection(),
        geolayer: {
-         show: layer.isGeoLayer(),
+         show: geolayer,
          active: false
        }
      };
@@ -407,7 +411,13 @@ function Service(){
               withrelations = inuserelation.length ? inuserelation.map(plotrelation=> plotrelation.id).join(','): void 0;
             }
             const relationonetomany = this.relationData ? `${this.relationData.relations.find(relation => plot.qgs_layer_id === relation.referencingLayer).id}|${this.relationData.fid}` : undefined;
-            const in_bbox = addInBBoxParam ? this.customParams.bbox : void 0;
+            let in_bbox;
+            if (addInBBoxParam && this.customParams.bbox) in_bbox =  plot.crs === this.mapCrs ? this.customParams.bbox :
+              transformBBOX({
+                bbox: this.customParams.bbox.split(','),
+                sourceCrs: this.mapCrs,
+                destinationCrs: plot.crs
+              }).join(',');
             promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
               url: `${BASEQPLOTLYAPIURL}/${plot.id}`,
               params: {

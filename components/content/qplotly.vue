@@ -144,6 +144,7 @@
           })
         });
         this.$options.service.chartsReady();
+        this.loadindcharts = false;
       },
       resize(){
         try {
@@ -164,8 +165,6 @@
         this.filters.splice(0);
         this.titles = {};
         this.tools = {};
-        this.layersId.splice(0);
-        this.plotIds.splice(0);
         await this.$nextTick();
       },
       setChartPlotHeigth(content_div){
@@ -213,8 +212,8 @@
         this.charts = charts;
         const dataLength = this.charts.data.length;
         this.show = dataLength > 0;
+        this.$nextTick();
         await this.clearPlotlyData();
-
         if (this.draw && this.show) {
           for (let i=0; i < dataLength; i++){
             const plot_div_id = this.getPlotlyIdByIndex(i);
@@ -222,8 +221,8 @@
             Vue.set(this.titles, plot_div_id, charts.layout[i].title.toUpperCase());
             Vue.set(this.filters, plot_div_id, charts.filters[i]);
             Vue.set(this.tools, plot_div_id, charts.tools[i]);
-            this.layersId.push(charts.layersId[i]);
-            this.plotIds.push(charts.plotIds[i]);
+            this.layersId.indexOf(charts.layersId[i]) < 0 && this.layersId.push(charts.layersId[i]);
+            this.plotIds.indexOf(charts.plotIds[i]) < 0 && this.plotIds.push(charts.plotIds[i]);
           }
           await this.calculateHeigths();
           for (let i = 0; i < dataLength; i++) {

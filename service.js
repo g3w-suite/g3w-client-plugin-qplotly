@@ -206,19 +206,21 @@ function Service(){
     if (plot.tools.geolayer.active) plot.filters.length ? plot.filters[0] = 'in_bbox_filtertoken' : plot.filters.push('in_bbox');
   };
 
-  this.getChartsAndEmit = async function({subplots=false} ={}){
-    const charts = await this.getCharts();
+  this.getChartsAndEmit = async function({subplots=false, plotIds} ={}){
+    const charts = await this.getCharts({
+      plotIds
+    });
     this.emit('change-charts', {
       charts,
       subplots
     });
   };
 
-  this.checkIfReload = function(plot) {
-    let reload = false;
+  this.checkIfReloadCharts = function(plot) {
+    let reload = [];
     plot.withrelations && plot.withrelations.forEach(plotrelation => {
       this.config.plots.forEach(plot => {
-        reload = reload || plot.show && plot.qgs_layer_id === plotrelation.relationLayer
+        plot.show && plot.qgs_layer_id === plotrelation.relationLayer && reload.push(plot.id);
       })
     });
     return reload;
@@ -236,8 +238,11 @@ function Service(){
       }
     }
     this.setContentChartTools();
-    const reload = this.checkIfReload(plot);
-    if (reload) await this.getChartsAndEmit();
+    const chartstoreload = this.checkIfReloadCharts(plot);
+    if (chartstoreload.lenght) await this.getChartsAndEmit({
+      subplots: true,
+      plotIds: chartstoreload
+    });
     else {
       if (plot.loaded) this.emit('show-hide-chart', {
         plotId:plot.id,
@@ -252,22 +257,24 @@ function Service(){
 
   this.hidePlot = async function(plot){
     if (plot.tools.geolayer.show){
+      if (plot.tools.geolayer.active) plot.loaded = false;
       plot.tools.geolayer.active = false;
       if (this.keyMapMoveendEvent.key) this.keyMapMoveendEvent.plotIds = this.keyMapMoveendEvent.plotIds.filter(plotId => plot.id !== plotId.id);
       if (this.keyMapMoveendEvent.plotIds.length === 0) {
         this.customParams.bbox = void 0;
         this.state.tools.map.toggled = false;
       }
-    };
+    }
     this.setContentChartTools();
     // check if we had to reload based on relation
-    const reload = this.checkIfReload(plot);
+    const chartstoreload = this.checkIfReloadCharts(plot);
     this.setActiveFilters(plot);
-    reload ? await this.getChartsAndEmit() : this.emit('show-hide-chart', {
+    this.emit('show-hide-chart', {
       plotId:plot.id,
       action: 'hide',
       filter: plot.filters
     });
+    chartstoreload.length && await this.getChartsAndEmit({subplots: true, plotIds: chartstoreload})
   };
 
   this.getPlots = function(){
@@ -353,7 +360,7 @@ function Service(){
     this.state.geolayer = !!this.config.plots.find(plot => plot.show && plot.tools.geolayer.show);
   };
 
-  this.getCharts = async function({layerIds, relationData}={}){
+  this.getCharts = async function({layerIds, plotIds, relationData}={}){
     this.relationData = this.reloaddata ? this.relationData : relationData;
     if (this.relationData) this.state.loading = true;
     if (!layerIds) await GUI.setLoadingContent(true);
@@ -366,7 +373,10 @@ function Service(){
       let plots;
       if (layerIds) {
         plots = this.config.plots.filter(plot => layerIds.indexOf(plot.qgs_layer_id) !== -1);
-      } else if (this.keyMapMoveendEvent.plotIds.length > 0) {
+      } else if (plotIds) {
+        plots = this.config.plots.filter(plot => plotIds.indexOf(plot.id) !== -1);
+        console.log(plots)
+      } else if(this.keyMapMoveendEvent.plotIds.length > 0) {
         plots = this.config.plots.filter(plot => (plot.show && !plot.tools.geolayer.show) ||
           this.keyMapMoveendEvent.plotIds.map(plotId => plotId.id).indexOf(plot.id) !== -1);
       } else  plots = this.config.plots.filter(plot => plot.show);

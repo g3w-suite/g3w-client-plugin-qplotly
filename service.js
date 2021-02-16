@@ -42,7 +42,7 @@ function Service(){
   this.init = function(config={}){
     this.config = config;
     this.chartContainers = [];
-    this.changeChartsEventHandler = async ({layerId}={}) =>{
+    this.changeChartsEventHandler = async ({layerId}) =>{
       // change if one of these condition is true
       const change = this.showCharts && !this.relationData && !!this.config.plots.find(plot=> this.customParams.bbox || plot.qgs_layer_id === layerId && plot.show);
       // in case of a filter is change on showed chart it redraw the chart
@@ -206,12 +206,15 @@ function Service(){
   };
 
   this.showPlot = async function(plot){
-    plot.tools.geolayer.active =  this.state.tools.map.toggled;
-    if (this.keyMapMoveendEvent.key){
-      this.keyMapMoveendEvent.plotIds.push({
-        id: plot.id,
-        active: this.state.tools.map.toggled
-      })
+    // only if geolayer
+    if (plot.tools.geolayer.show){
+      plot.tools.geolayer.active =  this.state.tools.map.toggled;
+      if (this.keyMapMoveendEvent.key){
+        this.keyMapMoveendEvent.plotIds.push({
+          id: plot.id,
+          active: this.state.tools.map.toggled
+        })
+      }
     }
     await this.getChartsAndEmit();
     /*
@@ -226,16 +229,18 @@ function Service(){
   };
 
   this.hidePlot = async function(plot){
-    if (this.keyMapMoveendEvent.key) this.keyMapMoveendEvent.plotIds = this.keyMapMoveendEvent.plotIds.filter(plotId => plot.id !== plotId.id);
-    if (this.keyMapMoveendEvent.plotIds.length === 0) {
-      this.customParams.bbox = void 0;
-      this.state.tools.map.toggled = false;
+    if (plot.tools.geolayer.show){
+      if (this.keyMapMoveendEvent.key) this.keyMapMoveendEvent.plotIds = this.keyMapMoveendEvent.plotIds.filter(plotId => plot.id !== plotId.id);
+      if (this.keyMapMoveendEvent.plotIds.length === 0) {
+        this.customParams.bbox = void 0;
+        this.state.tools.map.toggled = false;
+      }
     }
-    // this.emit('show-hide-chart', {
-    //   plotId:plot.id,
-    //   action: 'hide'
-    // } );
-    await this.getChartsAndEmit();
+    this.emit('show-hide-chart', {
+       plotId:plot.id,
+       action: 'hide'
+     } );
+    //await this.getChartsAndEmit();
   };
 
   this.getPlots = function(){
@@ -288,7 +293,7 @@ function Service(){
     this.state.tools.map.toggled = change ? !this.state.tools.map.toggled: this.state.tools.map.toggled;
     this.setBBoxParameter();
     const plotIds = this.config.plots.filter(plot => {
-      plot.tools.geolayer.active = this.state.tools.map.toggled;
+      plot.tools.geolayer.active = plot.tools.geolayer.show && this.state.tools.map.toggled;
       return plot.show && plot.tools.geolayer.active
     }).map(plot => ({
         id: plot.id,
@@ -327,10 +332,13 @@ function Service(){
     });
     this.resetPlotDynamicValues();
     return new Promise(resolve => {
-      const plots = layerIds || this.keyMapMoveendEvent.plotIds.length > 0 ?
-        (this.config.plots.filter(plot => layerIds ? layerIds.indexOf(plot.qgs_layer_id) !== -1:
-        this.keyMapMoveendEvent.plotIds.map(plotId => plotId.id).indexOf(plot.id) !== -1)) :
-        this.config.plots.filter(plot => plot.show);
+      let plots;
+      if (layerIds) {
+        plots = this.config.plots.filter(plot => layerIds.indexOf(plot.qgs_layer_id) !== -1);
+      } else if (this.keyMapMoveendEvent.plotIds.length > 0) {
+        plots = this.config.plots.filter(plot => (plot.show && !plot.tools.geolayer.show) ||
+          this.keyMapMoveendEvent.plotIds.map(plotId => plotId.id).indexOf(plot.id) !== -1);
+      } else  plots = this.config.plots.filter(plot => plot.show);
       const charts = {
         data: [],
         layout: [],
@@ -341,7 +349,7 @@ function Service(){
       };
       // set plot id to show
       if (plots.length > 1) {
-        const layerwithrelations = []; // useful to save refence layerid arlarey used to ask relation chartts
+        const layerwithrelations = []; // useful to save refence layerid al used to ask relation chartts
         plots.forEach(plot => {
           const children = layerwithrelations.indexOf(plot.qgs_layer_id) < 0 && this._relations[plot.qgs_layer_id];
           if (children) {
@@ -396,6 +404,15 @@ function Service(){
               if (promise.status === 'fulfilled' && promise.value.result) {
                 const {data, relation, relations} = promise.value;
                 if (relation) return; // in case of relation do nothing
+                plot = plots[rootindex];
+                plot.plot.layout.title = plot.plot.layout._title;
+                charts.data[rootindex] = data[0] ;
+                this.setActivePlotToolGeolayer(plot);
+                charts.filters[rootindex] = plot.filters;
+                charts.layout[rootindex] = plot.plot.layout;
+                charts.plotIds[rootindex] = plot.id;
+                charts.tools[rootindex] = plot.tools;
+                charts.layersId[rootindex] = plot.qgs_layer_id;
                 if (relations) {
                   Object.keys(relations).forEach( relationId =>{
                     const relationdata = relations[relationId];
@@ -429,15 +446,6 @@ function Service(){
                     })
                   });
                 }
-                plot = plots[rootindex];
-                plot.plot.layout.title = plot.plot.layout._title;
-                charts.data[rootindex] = data[0] ;
-                this.setActivePlotToolGeolayer(plot);
-                charts.filters[rootindex] = plot.filters;
-                charts.layout[rootindex] = plot.plot.layout;
-                charts.plotIds[rootindex] = plot.id;
-                charts.tools[rootindex] = plot.tools;
-                charts.layersId[rootindex] = plot.qgs_layer_id;
               } else  {
                 plot = plots[rootindex];
                 charts.data[rootindex] = null;

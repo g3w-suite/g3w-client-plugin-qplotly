@@ -67,7 +67,7 @@
           active
         });
         this.state.tools.map.toggled = this.tools.reduce((accumulator, current, index) => {
-          const active = current.geolayer.active;
+          const active = current.geolayer.show && current.geolayer.active;
           active && plotIds.push({
             id: this.plotIds[index],
             active

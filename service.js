@@ -375,7 +375,6 @@ function Service(){
         plots = this.config.plots.filter(plot => layerIds.indexOf(plot.qgs_layer_id) !== -1);
       } else if (plotIds) {
         plots = this.config.plots.filter(plot => plotIds.indexOf(plot.id) !== -1);
-        console.log(plots)
       } else if(this.keyMapMoveendEvent.plotIds.length > 0) {
         plots = this.config.plots.filter(plot => (plot.show && !plot.tools.geolayer.show) ||
           this.keyMapMoveendEvent.plotIds.map(plotId => plotId.id).indexOf(plot.id) !== -1);

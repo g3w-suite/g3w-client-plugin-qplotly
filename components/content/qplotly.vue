@@ -90,7 +90,7 @@
         return index;
       },
       getPlotlyIdByIndex(index){
-        return `plot_div_${index}`;
+        return index;
       },
       /*
       action: 'show', 'hide'
@@ -113,12 +113,19 @@
           case 'show':
             this.show = true;
             await this.$nextTick();
-            this.plotly_divs.splice(index, 0, plotly_div_id);
+            const plot = this.plotly_divs.find((position, idx) => {
+              if (position > index){
+                this.plotly_divs.splice(idx, 0, index);
+                return true;
+              }
+            });
+            !plot && this.plotly_divs.push(index);
             await this.$nextTick();
             this.calculateHeigths();
             this.drawPlotlyChart(index);
             this.plotly_divs.forEach((plot_div, _index) =>{
               if (_index !== index) {
+                console.log(this.$refs)
                 const content_div = this.$refs[plot_div][0];
                 this.setChartPlotHeigth(content_div);
               }

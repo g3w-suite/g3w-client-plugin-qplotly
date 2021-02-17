@@ -22,6 +22,7 @@ function Service(){
   this.state = Vue.observable({
     loading: false,
     geolayer: false,
+    positions: [],
     tools: {
       map: {
         toggled: false
@@ -48,15 +49,23 @@ function Service(){
       const change = this.showCharts && !this.relationData && !!this.config.plots.find(plot=> this.customParams.bbox || plot.qgs_layer_id === layerId && plot.show);
       // in case of a filter is change on showed chart it redraw the chart
       if (change) {
+        const plotreload = [];
         const subplots = this.keyMapMoveendEvent.plotIds.length > 0;
         subplots && this.keyMapMoveendEvent.plotIds.forEach(plotId => {
-          const plot = this.config.plots.find(plot => plot.id !== plotId);
-          if (plot) plot.loaded = false;
+          const plot = this.config.plots.find(plot => plot.id === plotId.id);
+          plot.loaded = false;
+          plotreload.push(plot);
         });
         this.reloaddata = true;
         this.setBBoxParameter(subplots);
         try {
-          await this.getChartsAndEmit({subplots});
+          const plotIds = subplots && this.getPlotsIdsToLoad({
+            plots: plotreload,
+            use: true
+          }) || undefined;
+          await this.getChartsAndEmit({
+            plotIds
+          });
         } catch(e){}
         this.reloaddata = false;
       } else if (layerId) {
@@ -65,6 +74,7 @@ function Service(){
       }
     };
     this.config.plots.forEach((plot, index)=>{
+     this.state.positions.push(plot.id); 
      plot.show = index === 0;
      plot.withrelations = null;
      plot.request = true;
@@ -206,23 +216,78 @@ function Service(){
     if (plot.tools.geolayer.active) plot.filters.length ? plot.filters[0] = 'in_bbox_filtertoken' : plot.filters.push('in_bbox');
   };
 
-  this.getChartsAndEmit = async function({subplots=false, plotIds} ={}){
+  this.getChartsAndEmit = async function({plotIds} ={}){
     const charts = await this.getCharts({
       plotIds
     });
     this.emit('change-charts', {
-      charts,
-      subplots
+      charts
     });
   };
+  //check if had to reload data of parent relation
 
-  this.checkIfReloadCharts = function(plot) {
-    let reload = [];
-    plot.withrelations && plot.withrelations.forEach(plotrelation => {
-      this.config.plots.forEach(plot => {
-        plot.show && plot.qgs_layer_id === plotrelation.relationLayer && reload.push(plot.id);
+  this.getPlotsIdsToLoad = function({plots=[], use=false}={}){
+    let plotIds = [];
+    plots.forEach(plot =>{
+      const plotIdsToLoad = this.getPlotIdsToLoad({
+        plot,
+        use
+      });
+      if (plotIdsToLoad.length) {
+        plotIdsToLoad.forEach(plotIdToLoad=>{
+          const find = plotIds.find(ploId => plotIdsToLoad.id === plotIdToLoad.id);
+          !find && plotIds.push(plotIdToLoad);
+        })
+      } else plotIds.push({
+        id: plot.id,
+        relation: false
       })
     });
+    return plotIds;
+  };
+
+  /*
+  use: true, false
+  * */
+  this.getPlotIdsToLoad = function({plot, use}) {
+    let reload = [];
+    // if has a relations
+    if (plot.withrelations) {
+      plot.withrelations.forEach(plotrelation => {
+        this.config.plots.forEach(plot => {
+          if (plot.show && plot.qgs_layer_id === plotrelation.relationLayer){
+            plotrelation.use = use;
+            reload.push({
+              id:plot.id,
+              relation:true
+            });
+          }
+        });
+        reload.length && reload.push({
+          id: plot.id,
+          relation: false
+        })
+      });
+    } else {
+      this.config.plots.forEach(_plot => {
+        if (_plot.id !== plot.id && _plot.show){
+          const relations = _plot.withrelations;
+           relations && relations.find((plotrelation, index) => {
+             if (plotrelation.relationLayer === plot.qgs_layer_id){
+               relations[index].use = use;
+               reload.push({
+                 id: _plot.id,
+                 relation: false
+               });
+               return true
+            }
+           });}
+      });
+      use && reload.length && reload.push({
+        id:plot.id,
+        relation: true
+      });
+    }
     return reload;
   };
 
@@ -238,9 +303,11 @@ function Service(){
       }
     }
     this.setContentChartTools();
-    const chartstoreload = this.checkIfReloadCharts(plot);
-    if (chartstoreload.lenght) await this.getChartsAndEmit({
-      subplots: true,
+    const chartstoreload = this.getPlotIdsToLoad({
+      plot,
+      use: true
+    });
+    if (chartstoreload.length) await this.getChartsAndEmit({
       plotIds: chartstoreload
     });
     else {
@@ -249,7 +316,12 @@ function Service(){
         action: 'show'}
       );
       else {
-        await this.getChartsAndEmit();
+        await this.getChartsAndEmit({
+          plotIds:[{
+            id:plot.id,
+            relation: false
+          }]
+        });
         plot.loaded = true;
       }
     }
@@ -267,14 +339,18 @@ function Service(){
     }
     this.setContentChartTools();
     // check if we had to reload based on relation
-    const chartstoreload = this.checkIfReloadCharts(plot);
+    const chartstoreload = this.getPlotIdsToLoad({
+      plot,
+      use: false
+    });
+
     this.setActiveFilters(plot);
+    chartstoreload.length && await this.getChartsAndEmit({plotIds: chartstoreload})
     this.emit('show-hide-chart', {
       plotId:plot.id,
       action: 'hide',
       filter: plot.filters
     });
-    chartstoreload.length && await this.getChartsAndEmit({subplots: true, plotIds: chartstoreload})
   };
 
   this.getPlots = function(){
@@ -306,7 +382,18 @@ function Service(){
       listen:true,
       plotIds
     });
-    return await this.getCharts()
+    const _plotIds = plotIds.map(plotId => plotId.id);
+    const plots = this.config.plots.filter(plot => {
+      const find = _plotIds.find(plotId => plotId === plot.id);
+      return find !== undefined;
+    });
+
+    return await this.getCharts({
+      plotIds: this.getPlotsIdsToLoad({
+        plots,
+        use: true
+      })
+    });
   };
 
   this.handleKeyMapMoveendEvent = function({listen=false, plotIds=[]}={}){
@@ -321,39 +408,34 @@ function Service(){
   };
 
   // methods reload chart data for every charts
-  this.showMapFeaturesAllCharts = async function(change){
+  this.showMapFeaturesAllCharts = async function(change=false){
+    let charts;
     this.mainbboxtool = true;
     this.reloaddata = true;
     this.state.tools.map.toggled = change ? !this.state.tools.map.toggled: this.state.tools.map.toggled;
     this.setBBoxParameter();
-    const plotIds = this.config.plots.filter(plot => {
+    const activeGeolayerPlots = this.config.plots.filter(plot => {
       plot.tools.geolayer.active = plot.tools.geolayer.show && this.state.tools.map.toggled;
-      return plot.show && plot.tools.geolayer.active
-    }).map(plot => ({
-        id: plot.id,
-        active: true
-    }));
+      return plot.show && (this.state.tools.map.toggled && plot.tools.geolayer.active || true)
+    });
     this.handleKeyMapMoveendEvent({
       listen: this.state.tools.map.toggled,
-      plotIds
+      plotIds: activeGeolayerPlots.map(plot => ({
+        id: plot.id,
+        active: plot.tools.geolayer.active
+      }))
     });
     try {
-      const charts = await this.getCharts();
-      this.emit('change-charts', {
-        charts,
-        subplots: false
+      const plotIds = this.getPlotsIdsToLoad({
+        plots: activeGeolayerPlots,
+        use: true
+      });
+      charts = await this.getCharts({
+        plotIds
       });
     } catch(e){}
     this.reloaddata = false;
-    return this.state.tools.map.toggled;
-  };
-
-  this.resetPlotDynamicValues = function(){
-    this.config.plots.forEach(plot  => {
-      plot.withrelations && plot.withrelations.forEach(plotrelation => plotrelation.use = false);
-      plot.request = true;
-      plot.filters = [];
-    })
+    return charts;
   };
 
   this.setContentChartTools = function(){
@@ -368,17 +450,20 @@ function Service(){
       if (!layerIds) await GUI.setLoadingContent(false);
       if (this.relationData) this.state.loading = false;
     });
-    this.resetPlotDynamicValues();
     return new Promise(resolve => {
       let plots;
       if (layerIds) {
         plots = this.config.plots.filter(plot => layerIds.indexOf(plot.qgs_layer_id) !== -1);
       } else if (plotIds) {
-        plots = this.config.plots.filter(plot => plotIds.indexOf(plot.id) !== -1);
-      } else if(this.keyMapMoveendEvent.plotIds.length > 0) {
-        plots = this.config.plots.filter(plot => (plot.show && !plot.tools.geolayer.show) ||
-          this.keyMapMoveendEvent.plotIds.map(plotId => plotId.id).indexOf(plot.id) !== -1);
-      } else  plots = this.config.plots.filter(plot => plot.show);
+        plots = this.config.plots.filter(plot => {
+          const findplot = plotIds.find(plotId => plotId.id === plot.id);
+          if (findplot) {
+            plot.request = !findplot.relation;
+            return true;
+          }
+          else return false;
+        });
+      } else plots = this.config.plots.filter(plot => plot.show);
       const charts = {
         data: [],
         layout: [],
@@ -387,19 +472,6 @@ function Service(){
         filters: [],
         tools: []
       };
-      // set plot id to show
-      if (plots.length > 1) {
-        plots.forEach(plot => {
-          plot.withrelations && plot.withrelations.forEach(plotrelation =>{
-            plots.forEach((plot, index) =>{
-              if (plot.qgs_layer_id === plotrelation.relationLayer) {
-                plotrelation.use = true;
-                plot.request = false;
-              }
-            })
-          })
-        })
-      }
       // set main map visibile filter tool
       // check if is supported
       if (Promise.allSettled) {
@@ -417,7 +489,7 @@ function Service(){
             let withrelations;
             if (plot.withrelations) {
               const inuserelation = plot.withrelations.filter(plotrelation => plotrelation.use);
-              withrelations = inuserelation.length ? inuserelation.map(plotrelation=> plotrelation.id).join(','): void 0;
+              withrelations = inuserelation.length ? inuserelation.map(plotrelation=> plotrelation.id).join(','): undefined;
             }
             const relationonetomany = this.relationData ? `${this.relationData.relations.find(relation => plot.qgs_layer_id === relation.referencingLayer).id}|${this.relationData.fid}` : undefined;
             let in_bbox;
@@ -457,7 +529,7 @@ function Service(){
                 charts.tools[rootindex] = plot.tools;
                 charts.layersId[rootindex] = plot.qgs_layer_id;
                 if (relations) {
-                  Object.keys(relations).forEach( relationId =>{
+                  Object.keys(relations).forEach(relationId =>{
                     const relationdata = relations[relationId];
                     relationdata.forEach(({id, data}) =>{
                       const fatherPlot = plots.find(plot => plot.withrelations && !!plot.withrelations.find(plotrelation => plotrelation.id === relationId));

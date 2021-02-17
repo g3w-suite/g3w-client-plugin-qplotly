@@ -9,7 +9,7 @@
     <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; position: relative" :style="{height: `${height}%`}">
       <div v-for="(plotly_div, index) in plotly_divs" :key="plotly_div" style="position:relative;"  :style="{height: `${100/plotly_divs.length}%`}">
         <plotheader @toggle-bbox-tool="handleBBoxTools"  @toggle-filter-tool="handleToggleFilter"
-          :index="index" :layerId="layersId[index]" :tools="!relationData && tools[plotly_div]" :title="titles[plotly_div]" :filters="filters[plotly_div]">
+          :index="index" :layerId="layersId[index]" :tools="!relationData ? tools[plotly_div] : undefined" :title="titles[plotly_div]" :filters="filters[plotly_div]">
         </plotheader>
         <div class="plot_div_content" :id="plotly_div" :ref="plotly_div" style="width:95%; margin: auto"></div>
       </div>
@@ -74,14 +74,12 @@
           });
           return accumulator && (current.geolayer.show ? active : true)
         },true);
-        if (!this.state.tools.map.toggled && plotIds.length > 0) {
-          const charts = await this.$options.service.showMapFeaturesSubPlotsCharts(plotIds);
-          this.replaceExistingCharts(charts);
-        } else this.showMapFeaturesCharts(false)
+        const charts = await this.$options.service.showMapFeaturesSubPlotsCharts(plotIds);
+        this.replaceAddExistingCharts(charts);
       },
       findChartIndex(plotId){
         let index;
-        this.charts.plotIds.find((id, idx) => {
+        this.state.positions.find((id, idx) => {
           if (id === plotId){
             index = idx;
             return true
@@ -89,20 +87,17 @@
         });
         return index;
       },
-      getPlotlyIdByIndex(index){
-        return index;
-      },
+
       /*
       action: 'show', 'hide'
       * */
       async showHideChart({plotId, action, filter}={}){
-        const index = this.findChartIndex(plotId);
-        const plotly_div_id = this.getPlotlyIdByIndex(index);
+        const plot_div = this.findChartIndex(plotId);
         switch(action){
           case 'hide':
-            this.plotly_divs = this.plotly_divs.filter(plot_div => plot_div !== plotly_div_id);
+            this.plotly_divs = this.plotly_divs.filter(_plot_div => _plot_div !== plot_div);
             this.show = this.plotly_divs.length > 0;
-            this.filters[plotly_div_id] = filter;
+            this.filters[plot_div] = filter;
             this.$nextTick();
             await this.calculateHeigths();
             this.show && this.plotly_divs.forEach(plot_div =>{
@@ -113,42 +108,57 @@
           case 'show':
             this.show = true;
             await this.$nextTick();
-            const plot = this.plotly_divs.find((position, idx) => {
-              if (position > index){
-                this.plotly_divs.splice(idx, 0, index);
+            this.plotly_divs.length && this.plotly_divs.find((position, idx) => {
+              if (position > plot_div){
+                this.plotly_divs.splice(idx, 0, plot_div);
                 return true;
               }
-            });
-            !plot && this.plotly_divs.push(index);
+            }) || this.plotly_divs.push(plot_div);
             await this.$nextTick();
             this.calculateHeigths();
-            this.drawPlotlyChart(index);
-            this.plotly_divs.forEach((plot_div, _index) =>{
-              if (_index !== index) {
-                console.log(this.$refs)
-                const content_div = this.$refs[plot_div][0];
-                this.setChartPlotHeigth(content_div);
-              }
+            this.drawPlotlyChart({
+              index: plot_div,
+              plot_div
+            });
+            this.plotly_divs.forEach(plot_div =>{
+              const content_div = this.$refs[plot_div][0];
+              this.setChartPlotHeigth(content_div);
             });
             break;
         }
         this.show && this.resize();
       },
-      replaceExistingCharts(charts){
+      async replaceAddExistingCharts(charts){
         charts.plotIds.forEach((plotId, index) =>{
-          this.charts.plotIds.find((loadedPlotId, loadedIndex) => {
+          const replace = this.charts.plotIds.find((loadedPlotId, loadedIndex) => {
             if (loadedPlotId === plotId) {
               this.charts.data[loadedIndex] = charts.data[index];
               this.charts.filters[loadedIndex].splice(0);
-              this.$nextTick(()=>{
-                charts.filters[index].forEach(filter =>{
-                  this.charts.filters[loadedIndex].push(filter)
-                });
-                this.drawPlotlyChart(loadedIndex, true);
+              charts.filters[index].forEach(filter =>{
+                this.charts.filters[loadedIndex].push(filter)
+              });
+              const plot_div = this.findChartIndex(plotId);
+              this.drawPlotlyChart({
+                index: loadedIndex,
+                plot_div,
+                replace: true
               });
               return true
             }
-          })
+          });
+          if (replace === undefined) {
+            const plot_div_id = this.findChartIndex(plotId);
+            this.charts.plotIds.splice(plot_div_id,0, plotId);
+            this.charts.data.splice(plot_div_id, 0, charts.data[index]);
+            this.charts.filters.splice(plot_div_id, 0,charts.filters[index]);
+            this.charts.layout.splice(plot_div_id, 0,  charts.layout[index]);
+            this.plotly_divs.splice(plot_div_id, 0, plot_div_id);
+            Vue.set(this.titles, plot_div_id, charts.layout[index].title.toUpperCase());
+            Vue.set(this.filters, plot_div_id, charts.filters[index]);
+            Vue.set(this.tools, plot_div_id, charts.tools[index]);
+            this.layersId.indexOf(charts.layersId[index]) < 0 && this.layersId.push(charts.layersId[index]);
+            this.plotIds.indexOf(charts.plotIds[index]) < 0 && this.plotIds.push(charts.plotIds[index]);
+          }
         });
         this.$options.service.chartsReady();
         this.loadindcharts = false;
@@ -163,27 +173,17 @@
           Plotly.Plots.react();
         } catch (e) {}
       },
-      async clearPlotlyData(){
-        this.plotly_divs.forEach(plot_div =>{
-          const content_div = this.$refs[plot_div][0];
-          Plotly.purge(content_div)
-        });
-        this.plotly_divs.splice(0);
-        this.filters.splice(0);
-        this.titles = {};
-        this.tools = {};
-        await this.$nextTick();
-      },
       setChartPlotHeigth(content_div){
         setTimeout(()=>{
           const jqueryContent = $(content_div);
           content_div.style.height = `${jqueryContent.parent().outerHeight() - jqueryContent.siblings().outerHeight()}px`;
         })
       },
-      drawPlotlyChart(index, replace=false){
+      drawPlotlyChart({index, plot_div, replace=false}={}){
         if (this.draw) {
           const config = this.$options.service.getChartConfig();
-          const content_div = this.$refs[this.getPlotlyIdByIndex(index)][0];
+          const content_div = this.$refs[plot_div][0];
+          console.log(this.charts.data, plot_div)
           this.setChartPlotHeigth(content_div);
           if (this.charts.data[index] && Array.isArray(this.charts.data[index].x) && this.charts.data[index].x.length) {
             const data = [this.charts.data[index]];
@@ -214,62 +214,59 @@
           resolve();
         })
       },
+      handleCharts(charts){
+        this.replaceAddExistingCharts(charts);
+      },
       async handleDataLayout({charts={}}={}){
         this.show = false;
-        this.charts = charts;
+        await this.handleCharts(charts);
         const dataLength = this.charts.data.length;
         this.show = dataLength > 0;
         this.$nextTick();
-        await this.clearPlotlyData();
         if (this.draw && this.show) {
-          for (let i=0; i < dataLength; i++){
-            const plot_div_id = this.getPlotlyIdByIndex(i);
-            this.plotly_divs.push(plot_div_id);
-            Vue.set(this.titles, plot_div_id, charts.layout[i].title.toUpperCase());
-            Vue.set(this.filters, plot_div_id, charts.filters[i]);
-            Vue.set(this.tools, plot_div_id, charts.tools[i]);
-            this.layersId.indexOf(charts.layersId[i]) < 0 && this.layersId.push(charts.layersId[i]);
-            this.plotIds.indexOf(charts.plotIds[i]) < 0 && this.plotIds.push(charts.plotIds[i]);
-          }
           await this.calculateHeigths();
-          for (let i = 0; i < dataLength; i++) {
-           this.drawPlotlyChart(i);
-          }
+          this.plotly_divs.forEach((plot_div, index) =>{
+            this.drawPlotlyChart({
+              index,
+              plot_div
+            });
+          });
         }
         await this.$nextTick();
         // call ready
         this.$options.service.chartsReady();
       },
-      showMapFeaturesCharts(change=true){
-        this.$options.service.showMapFeaturesAllCharts(change);
+      async showMapFeaturesCharts(){
+        const charts = await this.$options.service.showMapFeaturesAllCharts(true);
+        charts && this.replaceAddExistingCharts(charts);
       }
     },
     beforeCreate(){
       this.delayType = 'debounce';
     },
+    created(){
+      this.charts = {
+        plotIds: [],
+        data: [],
+        filters: [],
+        layout: []
+      }
+    },
     async mounted(){
       await this.$nextTick();
-      this.getCharts = ({charts, subplots}) =>{
-        // in case of subplots replace
-        if (subplots )this.replaceExistingCharts(charts);
-        else {
-          this.charts = charts;
-          this.handleDataLayout({
-            charts
-          })
-        }
-
+      this.getCharts = ({charts}) =>{
+        this.handleDataLayout({
+          charts
+        })
       };
       this.$options.service.on('change-charts', this.getCharts);
       this.$options.service.on('show-hide-chart', this.showHideChart);
-
       const charts = await this.$options.service.getCharts({
         layerIds: this.$options.ids,
         relationData: this.relationData
       });
       this.show = charts.data.length > 0;
       if (this.show) {
-        this.charts = charts;
         await this.handleDataLayout({
           charts
         });
@@ -282,7 +279,6 @@
       this.$options.service.off('show-hide-chart', this.showHideChart);
       this.relationData && GUI.off('pop-content', this.resize);
       this.$options.service.clearLoadedPlots();
-      this.clearPlotlyData();
       this.charts = null;
       this.draw = null;
     }

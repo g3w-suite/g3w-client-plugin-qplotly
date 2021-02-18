@@ -217,11 +217,12 @@ function Service(){
   };
 
   this.getChartsAndEmit = async function({plotIds} ={}){
-    const charts = await this.getCharts({
+    const {charts, order} = await this.getCharts({
       plotIds
     });
     this.emit('change-charts', {
-      charts
+      charts,
+      order
     });
   };
   //check if had to reload data of parent relation
@@ -253,17 +254,18 @@ function Service(){
     let reload = [];
     // if has a relations
     if (plot.withrelations) {
+      // check if chart in relation is show
       plot.withrelations.forEach(plotrelation => {
         this.config.plots.forEach(plot => {
           if (plot.show && plot.qgs_layer_id === plotrelation.relationLayer){
             plotrelation.use = use;
             reload.push({
               id:plot.id,
-              relation:true
+              relation: use
             });
           }
         });
-        reload.length && reload.push({
+        use && reload.length && reload.push({
           id: plot.id,
           relation: false
         })
@@ -311,10 +313,14 @@ function Service(){
       plotIds: chartstoreload
     });
     else {
-      if (plot.loaded) this.emit('show-hide-chart', {
-        plotId:plot.id,
-        action: 'show'}
-      );
+      const {charts, order} = this.createChartsObject();
+      if (plot.loaded)
+        this.emit('show-hide-chart', {
+          plotId:plot.id,
+          action: 'show',
+          charts,
+          order
+        });
       else {
         await this.getChartsAndEmit({
           plotIds:[{
@@ -345,12 +351,21 @@ function Service(){
     });
 
     this.setActiveFilters(plot);
-    chartstoreload.length && await this.getChartsAndEmit({plotIds: chartstoreload})
+    const {charts, order} = chartstoreload.length && await this.getCharts({plotIds: chartstoreload}) || this.createChartsObject();
     this.emit('show-hide-chart', {
       plotId:plot.id,
       action: 'hide',
-      filter: plot.filters
+      filter: plot.filters,
+      charts,
+      order
     });
+  };
+
+  this.createChartsObject = function({order}={}){
+    return {
+      order: order || this.config.plots.filter(plot=> plot.show).map(plot => plot.id),
+      charts: {}
+    }
   };
 
   this.getPlots = function(){
@@ -464,14 +479,9 @@ function Service(){
           else return false;
         });
       } else plots = this.config.plots.filter(plot => plot.show);
-      const charts = {
-        data: [],
-        layout: [],
-        plotIds: [],
-        layersId: [],
-        filters: [],
-        tools: []
-      };
+      const chartsObject = this.createChartsObject({
+        order: layerIds && plots.map(plot => plot.id)
+      });
       // set main map visibile filter tool
       // check if is supported
       if (Promise.allSettled) {
@@ -513,21 +523,21 @@ function Service(){
         });
         Promise.allSettled(promises)
           .then(async promisesData =>{
-            const alreadyusedindex = [];
-            promisesData.forEach((promise, rootindex) =>{
-              let plot;
+            promisesData.forEach((promise, index) =>{
+
               if (promise.status === 'fulfilled' && promise.value.result) {
                 const {data, relation, relations} = promise.value;
                 if (relation) return; // in case of relation do nothing
-                plot = plots[rootindex];
-                plot.plot.layout.title = plot.plot.layout._title;
-                charts.data[rootindex] = data[0] ;
+                const plot = plots[index];
                 this.setActiveFilters(plot);
-                charts.filters[rootindex] = plot.filters;
-                charts.layout[rootindex] = plot.plot.layout;
-                charts.plotIds[rootindex] = plot.id;
-                charts.tools[rootindex] = plot.tools;
-                charts.layersId[rootindex] = plot.qgs_layer_id;
+                chartsObject.charts[plot.id] = {};
+                const chart = chartsObject.charts[plot.id];
+                chart.filters = plot.filters;
+                chart.layout = plot.plot.layout;
+                chart.tools = plot.tools;
+                chart.layerId = plot.qgs_layer_id;
+                plot.plot.layout.title = plot.plot.layout._title;
+                chart.data = data[0];
                 if (relations) {
                   Object.keys(relations).forEach(relationId =>{
                     const relationdata = relations[relationId];
@@ -536,44 +546,38 @@ function Service(){
                       const fatherPlotFilters = fatherPlot && fatherPlot.filters;
                       plots.find((plot, index) => {
                         if (plot.id === id){
-                          const foundIndex = alreadyusedindex.find(_index => _index.index === index);
-                          if (!foundIndex) alreadyusedindex.push({
-                            index, count:1
-                          });
-                          else {
-                            foundIndex.count+=1;
-                            rootindex = rootindex < index ? rootindex : rootindex + foundIndex.count;
-                          }
-                          const _index = foundIndex ? index+foundIndex.count : index;
+                          this.setActiveFilters(plot);
+                          chartsObject.charts[plot.id] = {};
+                          const chart = chartsObject.charts[plot.id];
                           const layout = plot.plot.layout;
                           layout.title = `${this._relationIdName[relationId]} ${layout._title}`;
-                          charts.data[_index] = data[0];
-                          this.setActiveFilters(plot);
                           if (fatherPlotFilters.length) plot.filters.push(`relation.${fatherPlotFilters[0]}`);
-                          charts.filters[_index] = plot.filters;
-                          charts.layout[_index] = layout;
-                          charts.plotIds[_index] = plot.id;
-                          charts.tools[_index] = plot.tools;
-                          charts.layersId[_index] = plot.qgs_layer_id;
+                          chart.data = data[0];
+                          chart.filters= plot.filters;
+                          chart.layout = layout;
+                          chart.tools = plot.tools;
+                          chart.layerId = plot.qgs_layer_id;
                           return true;
                         }
                       });
                     })
                   });
                 }
-              } else  {
-                plot = plots[rootindex];
-                charts.data[rootindex] = null;
+              } else {
+                const plot = plots[index];
                 this.setActiveFilters(plot);
-                charts.filters[rootindex] = plot.filters;
-                charts.plotIds[rootindex] = plot.id;
-                charts.tools[rootindex] = plot.tools;
-                charts.layersId[rootindex] = plot.qgs_layer_id;
+                chartsObject.charts[plot.id] = {};
+                const chart = chartsObject.charts[plot.id];
+                chart.filters = plot.filters;
+                chart.layout = plot.plot.layout;
+                chart.tools = plot.tools;
+                chart.layerId = plot.qgs_layer_id;
+                chart.data = null;
               }
             });
             this.showCharts = true;
             this.removeInactivePlotIds();
-            resolve(charts);
+            resolve(chartsObject);
           })
       }
     });

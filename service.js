@@ -118,7 +118,7 @@ function Service(){
    });
    BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;
    this.loadscripts();
-   const queryResultService = GUI.getComponent('queryresults').getService();
+   this.queryResultService = GUI.getComponent('queryresults').getService();
    this.showChartsOnContainer = (ids, container, relationData) => {
      const find = this.chartContainers.find(queryresultcontainer => container.selector === queryresultcontainer.container.selector);
      !find && this.chartContainers.push({
@@ -138,10 +138,10 @@ function Service(){
      });
    };
 
-   queryResultService.addLayersPlotIds([...layersId]);
-   queryResultService.on('show-chart', this.showChartsOnContainer);
-   queryResultService.on('hide-chart', this.clearChartContainers);
-   this.closeComponentKeyEevent = queryResultService.onafter('closeComponent', this.clearChartContainers);
+   this.queryResultService.addLayersPlotIds([...layersId]);
+   this.queryResultService.on('show-chart', this.showChartsOnContainer);
+   this.queryResultService.on('hide-chart', this.clearChartContainers);
+   this.closeComponentKeyEevent = this.queryResultService.onceafter('closeComponent', this.clearChartContainers);
    this.setContentChartTools();
   };
 
@@ -460,10 +460,15 @@ function Service(){
   this.getCharts = async function({layerIds, plotIds, relationData}={}){
     this.relationData = this.reloaddata ? this.relationData : relationData;
     if (this.relationData) this.state.loading = true;
-    if (!layerIds) await GUI.setLoadingContent(true);
+    if (!layerIds) {
+      GUI.disableSideBar(true);
+      await GUI.setLoadingContent(true);
+    }
     this.onceafter('chartsReady', async ()=>{
-      if (!layerIds) await GUI.setLoadingContent(false);
-      if (this.relationData) this.state.loading = false;
+      if (!layerIds) {
+        GUI.disableSideBar(false);
+        await GUI.setLoadingContent(false);
+      } if (this.relationData) this.state.loading = false;
     });
     return new Promise(resolve => {
       let plots;
@@ -488,8 +493,8 @@ function Service(){
         const promises = [];
         plots.forEach(plot => {
           let promise;
-          // in case of no request (relation)
-          if (!plot.request) {
+          // in case of no request (relation) and not called from query
+          if (!relationData && !plot.request) {
             promise = Promise.resolve({
               result: true,
               relation:true
@@ -653,13 +658,13 @@ function Service(){
     });
     this.mapService = null;
     this.chartContainers = [];
-    const queryResultService = GUI.getComponent('queryresults').getService();
-    queryResultService.removeListener('show-charts', this.showChartsOnContainer);
-    queryResultService.un('closeComponent', this.closeComponentKeyEevent);
+    this.queryResultService.removeListener('show-charts', this.showChartsOnContainer);
+    this.queryResultService.un('closeComponent', this.closeComponentKeyEevent);
     this.closeComponentKeyEevent = null;
     GUI.closeContent();
     layersId = null;
     this.mainbboxtool = null;
+    this.queryResultService = null;
   };
 }
 

@@ -89,30 +89,29 @@
           case 'hide':
             this.charts[plotId].filters = filter;
             if (Object.keys(charts).length)
-              this.setCharts({
+              await this.setCharts({
                 charts,
                 order
               });
-            this.$nextTick();
-            await this.calculateHeigths(visibleCharts);
+            else {
+              await this.calculateHeigths(visibleCharts);
+              this.order.forEach(plotId =>{
+                const domElement = this.$refs[plotId][0];
+                this.setChartPlotHeigth(domElement);
+              });
+            }
             break;
           case 'show':
             this.show = true;
             await this.$nextTick();
             this.calculateHeigths(visibleCharts);
-            this.drawPlotlyChart({
-              plotId
-            });
             this.order.forEach(plotId =>{
-              const domElement = this.$refs[plotId][0];
-              this.setChartPlotHeigth(domElement);
+              this.drawPlotlyChart({
+                plotId
+              })
             });
             break;
         }
-        this.order.forEach(plotId =>{
-          const domElement = this.$refs[plotId][0];
-          this.setChartPlotHeigth(domElement);
-        });
         this.show && this.resize();
       },
       async setCharts({charts={}, order=[]}={}){
@@ -142,7 +141,7 @@
             this.setChartPlotHeigth(domElement);
             Plotly.Plots.resize(domElement);
           });
-          Plotly.Plots.react();
+          //Plotly.Plots.react();
         } catch (e) {}
       },
       setChartPlotHeigth(domElement){

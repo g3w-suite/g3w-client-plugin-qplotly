@@ -25,7 +25,8 @@ function Service(){
     positions: [],
     tools: {
       map: {
-        toggled: false
+        toggled: false,
+        disabled: false
       }
     }
   });

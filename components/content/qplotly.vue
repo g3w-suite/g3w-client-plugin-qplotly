@@ -1,18 +1,19 @@
 <template>
   <div :id="id" class="skin-color" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
-    <div v-if="showtools" class="qplotly-tools" style="border-radius: 3px; background-color: #FFFFFF; display: flex; padding: 3px; position: absolute; top: 3px; font-size:1.4em; right: 15px;">
-      <span class="skin-color action-button skin-tooltip-bottom" data-placement="bottom" data-toggle="tooltip" style="font-weight: bold; margin-left: 2px"
+    <div class="qplotly-tools" style="border-radius: 3px; background-color: #FFFFFF; display: flex; padding: 3px; position: absolute; top: 3px; font-size:1.4em; right: 15px;">
+      <span v-if ="tools.map.show" class="skin-color action-button skin-tooltip-bottom" v-disabled="tools.map.disabled" data-placement="bottom" data-toggle="tooltip" style="font-weight: bold; margin-left: 2px"
         :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']"
         @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></span>
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; position: relative" :style="{height: `${height}%`}">
-      <div v-for="(plotId, index) in order" :key="plotId" style="position:relative;"  :style="{height: `${100/order.length}%`}">
+      <div v-for="(plotId, index) in order" :key="plotId" style="position:relative;" v-disabled="charts[plotId].state.loading" :style="{height: `${100/order.length}%`}">
         <plotheader @toggle-bbox-tool="handleBBoxTools"  @toggle-filter-tool="handleToggleFilter"
           :index="index" :layerId="charts[plotId].layerId" :tools="!relationData ? charts[plotId].tools : undefined"
           :title="charts[plotId].titles" :filters="charts[plotId].filters">
         </plotheader>
-        <div class="plot_div_content" :ref="plotId" style="width:95%; margin: auto"></div>
+        <div class="plot_div_content" :ref="plotId" style="width:95%; margin: auto; position:relative">
+        </div>
       </div>
     </div>
     <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
@@ -38,17 +39,19 @@
       this.id = getUniqueDomId();
       this.wrapped = !!this.$options.ids;
       this.relationData = this.$options.relationData;
+      const state = this.$options.service.state;
       return {
-        state: this.$options.service.state,
+        state,
         show: true,
         overflowY: 'none',
         height: 100,
-        order: []
-      }
-    },
-    computed:{
-      showtools(){
-        return this.state.geolayer && !this.relationData;
+        order: [],
+        tools: {
+          map: {
+            show: state.geolayer && !this.relationData,
+            disabled: true
+          }
+        }
       }
     },
     methods: {
@@ -76,7 +79,6 @@
           order
         });
       },
-
       /*
       action: 'show', 'hide'
       * */
@@ -94,7 +96,7 @@
                 order
               });
             else {
-              await this.calculateHeigths(visibleCharts);
+              this.calculateHeigths(visibleCharts);
               this.order.forEach(plotId =>{
                 const domElement = this.$refs[plotId][0];
                 this.setChartPlotHeigth(domElement);
@@ -105,18 +107,38 @@
             this.show = true;
             await this.$nextTick();
             this.calculateHeigths(visibleCharts);
-            this.order.forEach(plotId =>{
-              this.drawPlotlyChart({
-                plotId
-              })
-            });
+            this.drawAllCharts();
             break;
         }
         this.show && this.resize();
       },
+
+      async drawAllCharts(){
+        this.tools.map.disabled = true;
+        await this.$nextTick();
+        const promises = [];
+        this.order.forEach(plotId =>{
+          const promise = this.drawPlotlyChart({
+            plotId
+          });
+          promise && promises.push(promise)
+        });
+        if (promises.length) {
+          const chartPlotIds = await Promise.allSettled(promises);
+          chartPlotIds.forEach(({value}) =>{
+            this.charts[value].state.loading = false;
+          })
+        }
+        this.tools.map.disabled = false;
+        this.$options.service.chartsReady();
+      },
+
       async setCharts({charts={}, order=[]}={}){
         Object.keys(charts).forEach(plotId =>{
           this.charts[plotId] = charts[plotId];
+          this.charts[plotId].state = Vue.observable({
+            loading: false
+          });
         });
         const visibleCharts = order.length;
         this.show = visibleCharts > 0;
@@ -124,42 +146,56 @@
         this.$nextTick();
         if (this.show) {
           await this.calculateHeigths(visibleCharts);
-          this.order.forEach(plotId =>{
-            this.drawPlotlyChart({
-              plotId
+          this.drawAllCharts();
+        } else this.$options.service.chartsReady();
+      },
+
+      async resize(){
+        if (this.mounted) {
+          const promises = [];
+          try {
+            this.tools.map.disabled = true;
+            this.order.forEach(plotId =>{
+              this.charts[plotId].state.loading = !this.relationData;
+              const domElement = this.$refs[plotId][0];
+              this.setChartPlotHeigth(domElement);
+              promises.push(new Promise(resolve =>{
+                Plotly.Plots.resize(domElement).then(()=>{
+                  resolve(plotId);
+                })
+              }))
             });
-          });
+          } catch (e) {}
+          if (promises.length) {
+            const chartsPlotIds = await Promise.allSettled(promises);
+            chartsPlotIds.forEach(({value}) => this.charts[value].state.loading = false);
+          }
+          this.tools.map.disabled = false;
         }
-        // call ready
-        this.$options.service.chartsReady();
-        this.loadindcharts = false;
       },
-      resize(){
-        try {
-          this.order.forEach(plotId =>{
-            const domElement = this.$refs[plotId][0];
-            this.setChartPlotHeigth(domElement);
-            Plotly.Plots.resize(domElement);
-          });
-          //Plotly.Plots.react();
-        } catch (e) {}
-      },
+
       setChartPlotHeigth(domElement){
         setTimeout(()=>{
           const jqueryContent = $(domElement);
           domElement.style.height = `${jqueryContent.parent().outerHeight() - jqueryContent.siblings().outerHeight()}px`;
         })
       },
-      drawPlotlyChart({plotId, replace=false}={}){
+
+      drawPlotlyChart({plotId}={}){
+        let promise;
+        const chart = this.charts[plotId];
         const config = this.$options.service.getChartConfig();
         const domElement = this.$refs[plotId][0];
+        const {data, layout} = chart;
         this.setChartPlotHeigth(domElement);
-        const data = this.charts[plotId].data;
-        const layout = this.charts[plotId].layout;
         if (data && Array.isArray(data.x) && data.x.length) {
-          if (replace) content_div.innerHTML = '';
-          setTimeout(()=>{
-            Plotly.newPlot(domElement, [data] , layout, config);
+          chart.state.loading = !this.relationData;
+          promise = new Promise(resolve =>{
+            setTimeout(()=>{
+              Plotly.newPlot(domElement, [data] , layout, config).then(()=>{
+                resolve(plotId)
+              });
+            })
           })
         } else {
           let component = Vue.extend(NoDataComponent);
@@ -171,7 +207,9 @@
           replace && domElement.firstChild.remove();
           setTimeout(()=> domElement.appendChild(component.$mount().$el));
         }
+        return promise;
       },
+
       async calculateHeigths(visibleCharts=0){
         return new Promise(async (resolve) =>{
           const addedHeight = (this.relationData && this.relationData.height ? (visibleCharts > 1 ? visibleCharts * 50: 0) : (visibleCharts > 2 ? visibleCharts - 2 : 0) * 50 );
@@ -194,9 +232,16 @@
       this.delayType = 'debounce';
     },
     created(){
-      this.charts = {}
+      this.charts = {};
+    },
+    watch: {
+      async 'state.geolayer'(bool){
+        await this.$nextTick();
+        this.tools.map.show = bool;
+      }
     },
     async mounted(){
+      this.mounted = false;
       await this.$nextTick();
       this.$options.service.on('change-charts', this.setCharts);
       this.$options.service.on('show-hide-chart', this.showHideChart);
@@ -209,9 +254,10 @@
         order
       });
       this.relationData && GUI.on('pop-content', this.resize);
+      this.mounted = true;
     },
     beforeDestroy() {
-      this.$options.service.off('change-charts', this.getCharts);
+      this.$options.service.off('change-charts', this.setCharts);
       this.$options.service.off('show-hide-chart', this.showHideChart);
       this.relationData && GUI.off('pop-content', this.resize);
       this.$options.service.clearLoadedPlots();

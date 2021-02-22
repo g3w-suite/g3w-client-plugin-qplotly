@@ -1,13 +1,13 @@
 <template>
   <div :id="id" class="skin-color" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
     <div class="qplotly-tools" style="border-radius: 3px; background-color: #FFFFFF; display: flex; padding: 3px; position: absolute; top: 3px; font-size:1.4em; right: 15px;">
-      <span v-if ="tools.map.show" class="skin-color action-button skin-tooltip-bottom" v-disabled="tools.map.disabled" data-placement="bottom" data-toggle="tooltip" style="font-weight: bold; margin-left: 2px"
+      <span v-if ="tools.map.show" class="skin-color action-button skin-tooltip-bottom" v-disabled="state.loading" data-placement="bottom" data-toggle="tooltip" style="font-weight: bold; margin-left: 2px"
         :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']"
         @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></span>
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; position: relative" :style="{height: `${height}%`}">
-      <div v-for="(plotId, index) in order" :key="plotId" style="position:relative;" v-disabled="charts[plotId].state.loading" :style="{height: `${100/order.length}%`}">
+      <div v-for="(plotId, index) in order" :key="plotId" style="position:relative;" v-disabled="state.loading" :style="{height: `${100/order.length}%`}">
         <plotheader @toggle-bbox-tool="handleBBoxTools"  @toggle-filter-tool="handleToggleFilter"
           :index="index" :layerId="charts[plotId].layerId" :tools="!relationData ? charts[plotId].tools : undefined"
           :title="charts[plotId].titles" :filters="charts[plotId].filters">
@@ -96,25 +96,38 @@
                 order
               });
             else {
-              this.calculateHeigths(visibleCharts);
-              this.order.forEach(plotId =>{
-                const domElement = this.$refs[plotId][0];
-                this.setChartPlotHeigth(domElement);
-              });
+              await this.calculateHeigths(visibleCharts);
+              await this.resizePlots();
             }
             break;
           case 'show':
             this.show = true;
-            await this.$nextTick();
-            this.calculateHeigths(visibleCharts);
-            this.drawAllCharts();
+            await this.calculateHeigths(visibleCharts);
+            await this.drawAllCharts();
+            this.$options.service.chartsReady();
             break;
         }
         this.show && this.resize();
       },
 
+      async resizePlots(){
+        !this.wrapped && await this.$options.service.updateCharts();
+        const promises = [];
+        this.order.forEach(plotId =>{
+          const domElement = this.$refs[plotId][0];
+          this.setChartPlotHeigth(domElement);
+          promises.push(new Promise(resolve =>{
+            Plotly.Plots.resize(domElement).then(()=>{
+              resolve(plotId);
+            })
+          }))
+        });
+        const chartsPlotIds = await Promise.allSettled(promises);
+        chartsPlotIds.forEach(({value}) => this.charts[value].state.loading = false);
+        !this.wrapped && this.$options.service.chartsReady();
+      },
+
       async drawAllCharts(){
-        this.tools.map.disabled = true;
         await this.$nextTick();
         const promises = [];
         this.order.forEach(plotId =>{
@@ -129,8 +142,6 @@
             this.charts[value].state.loading = false;
           })
         }
-        this.tools.map.disabled = false;
-        this.$options.service.chartsReady();
       },
 
       async setCharts({charts={}, order=[]}={}){
@@ -146,32 +157,13 @@
         this.$nextTick();
         if (this.show) {
           await this.calculateHeigths(visibleCharts);
-          this.drawAllCharts();
-        } else this.$options.service.chartsReady();
+          await this.drawAllCharts();
+        }
+        this.$options.service.chartsReady();
       },
 
       async resize(){
-        if (this.mounted) {
-          const promises = [];
-          try {
-            this.tools.map.disabled = true;
-            this.order.forEach(plotId =>{
-              this.charts[plotId].state.loading = !this.relationData;
-              const domElement = this.$refs[plotId][0];
-              this.setChartPlotHeigth(domElement);
-              promises.push(new Promise(resolve =>{
-                Plotly.Plots.resize(domElement).then(()=>{
-                  resolve(plotId);
-                })
-              }))
-            });
-          } catch (e) {}
-          if (promises.length) {
-            const chartsPlotIds = await Promise.allSettled(promises);
-            chartsPlotIds.forEach(({value}) => this.charts[value].state.loading = false);
-          }
-          this.tools.map.disabled = false;
-        }
+        this.mounted && await this.resizePlots();
       },
 
       setChartPlotHeigth(domElement){
@@ -204,7 +196,6 @@
               title: `Plot [${plotId}] ${layout && layout.title ? ' - ' + layout.title: ''} `
             }
           });
-          replace && domElement.firstChild.remove();
           setTimeout(()=> domElement.appendChild(component.$mount().$el));
         }
         return promise;

@@ -315,14 +315,15 @@ function Service(){
     });
     else {
       const {charts, order} = this.createChartsObject();
-      if (plot.loaded)
+      if (plot.loaded) {
+        await this.updateCharts();
         this.emit('show-hide-chart', {
           plotId:plot.id,
           action: 'show',
           charts,
           order
         });
-      else {
+      } else {
         await this.getChartsAndEmit({
           plotIds:[{
             id:plot.id,
@@ -353,6 +354,7 @@ function Service(){
 
     this.setActiveFilters(plot);
     const {charts, order} = chartstoreload.length && await this.getCharts({plotIds: chartstoreload}) || this.createChartsObject();
+    !chartstoreload.length && await this.updateCharts();
     this.emit('show-hide-chart', {
       plotId:plot.id,
       action: 'hide',
@@ -458,9 +460,8 @@ function Service(){
     this.state.geolayer = !!this.config.plots.find(plot => plot.show && plot.tools.geolayer.show);
   };
 
-  this.getCharts = async function({layerIds, plotIds, relationData}={}){
-    this.relationData = this.reloaddata ? this.relationData : relationData;
-    if (this.relationData) this.state.loading = true;
+  this.updateCharts = async function(layerIds){
+    this.state.loading = true;
     if (!layerIds) {
       GUI.disableSideBar(true);
       await GUI.setLoadingContent(true);
@@ -469,8 +470,14 @@ function Service(){
       if (!layerIds) {
         GUI.disableSideBar(false);
         await GUI.setLoadingContent(false);
-      } if (this.relationData) this.state.loading = false;
+      }
+      this.state.loading = false;
     });
+  };
+
+  this.getCharts = async function({layerIds, plotIds, relationData}={}){
+    this.relationData = this.reloaddata ? this.relationData : relationData;
+    await this.updateCharts(layerIds);
     return new Promise(resolve => {
       let plots;
       if (layerIds) {

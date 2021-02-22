@@ -10,7 +10,7 @@
       <div v-for="(plotId, index) in order" :key="plotId" style="position:relative;" v-disabled="state.loading" :style="{height: `${100/order.length}%`}">
         <plotheader @toggle-bbox-tool="handleBBoxTools"  @toggle-filter-tool="handleToggleFilter"
           :index="index" :layerId="charts[plotId].layerId" :tools="!relationData ? charts[plotId].tools : undefined"
-          :title="charts[plotId].titles" :filters="charts[plotId].filters">
+          :title="charts[plotId].title" :filters="charts[plotId].filters">
         </plotheader>
         <div class="plot_div_content" :ref="plotId" style="width:95%; margin: auto; position:relative">
         </div>
@@ -29,6 +29,10 @@
   const GUI = g3wsdk.gui.GUI;
   const {getUniqueDomId} = g3wsdk.core.utils;
   const {resizeMixin} = g3wsdk.gui.vue.Mixins;
+  const TYPE_VALUES = {
+    'pie': 'values',
+    'scatterternary': 'a'
+  };
   export default {
     name: "qplotly",
     mixins: [resizeMixin],
@@ -180,7 +184,7 @@
         const domElement = this.$refs[plotId][0];
         const {data, layout} = chart;
         this.setChartPlotHeigth(domElement);
-        if (data && Array.isArray(data.x) && data.x.length) {
+        if (data && Array.isArray(data[TYPE_VALUES[data.type] || 'x']) && data[TYPE_VALUES[data.type] || 'x'].length) {
           chart.state.loading = !this.relationData;
           promise = new Promise(resolve =>{
             setTimeout(()=>{
@@ -190,6 +194,7 @@
             })
           })
         } else {
+          domElement.innerHTML = '';
           let component = Vue.extend(NoDataComponent);
           component = new component({
             propsData: {

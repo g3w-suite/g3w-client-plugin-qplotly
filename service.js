@@ -73,7 +73,7 @@ function Service(){
         const plot = this.config.plots.find(plot => plot.qgs_layer_id === layerId);
         plot.loaded = false;
       }
-    }, 1000);
+    }, 1500);
     this.config.plots.forEach((plot, index)=>{
      this.state.positions.push(plot.id); 
      plot.show = index === 0;
@@ -550,6 +550,7 @@ function Service(){
                 chart.tools = plot.tools;
                 chart.layerId = plot.qgs_layer_id;
                 plot.plot.layout.title = plot.plot.layout._title;
+                chart.title = plot.plot.layout.title;
                 chart.data = data[0];
                 if (relations) {
                   Object.keys(relations).forEach(relationId =>{
@@ -570,6 +571,7 @@ function Service(){
                           chart.layout = layout;
                           chart.tools = plot.tools;
                           chart.layerId = plot.qgs_layer_id;
+                          chart.title = plot.plot.layout.title;
                           return true;
                         }
                       });
@@ -585,6 +587,7 @@ function Service(){
                 chart.layout = plot.plot.layout;
                 chart.tools = plot.tools;
                 chart.layerId = plot.qgs_layer_id;
+                chart.title = plot.plot.layout.title;
                 chart.data = null;
               }
             });

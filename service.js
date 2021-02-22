@@ -1,5 +1,5 @@
 import MultiPlot from './components/sidebar/multiplot';
-const { base, inherit, XHR } =  g3wsdk.core.utils;
+const { base, inherit, XHR , debounce} =  g3wsdk.core.utils;
 const { transformBBOX } = g3wsdk.core.geoutils;
 const GUI = g3wsdk.gui.GUI;
 const ApplicationState = g3wsdk.core.ApplicationState;
@@ -45,7 +45,7 @@ function Service(){
   this.init = function(config={}){
     this.config = config;
     this.chartContainers = [];
-    this.changeChartsEventHandler = async ({layerId}) =>{
+    this.changeChartsEventHandler = debounce(async ({layerId}) =>{
       // change if one of these condition is true
       const change = this.showCharts && !this.relationData && !!this.config.plots.find(plot=> this.customParams.bbox || plot.qgs_layer_id === layerId && plot.show);
       // in case of a filter is change on showed chart it redraw the chart
@@ -73,7 +73,7 @@ function Service(){
         const plot = this.config.plots.find(plot => plot.qgs_layer_id === layerId);
         plot.loaded = false;
       }
-    };
+    }, 1000);
     this.config.plots.forEach((plot, index)=>{
      this.state.positions.push(plot.id); 
      plot.show = index === 0;

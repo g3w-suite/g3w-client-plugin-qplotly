@@ -166,11 +166,8 @@ function Service(){
           open: {
             when: 'before',
             cb: async bool => {
-              bool && GUI.disableSideBar(true);
               await this.showChart(bool);
-              bool ? setTimeout(()=>{
-                GUI.disableSideBar(false);
-              },500) : this.config.plots.forEach(plot => plot.loaded = false);
+              !bool && this.config.plots.forEach(plot => plot.loaded = false);
             }
           }
         }

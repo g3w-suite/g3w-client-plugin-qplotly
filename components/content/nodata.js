@@ -16,7 +16,8 @@ module.exports = {
     }, [
       h('h4', {
         style: {
-          fontWeight: 'bold'
+          fontWeight: 'bold',
+          textAlign: 'center'
         },
         class:{
           'skin-color':true

@@ -1,5 +1,5 @@
 <template>
-  <div style="width:100%">
+  <div style="width:100%;" class="g3w-chart-header" >
     <div class="skin-background-color" style="display:flex; width: 100%; font-weight: bold; padding: 2px; min-height: 20px; font-size: 1.2em; text-align: center; color: #FFFFFF">
       <div style="margin:auto">{{ title }}</div>
       <div v-if="showtools" class="plot-tools" style="background-color: #FFFFFF; padding: 2px; font-size: 1.0em; border-radius: 3px">
@@ -11,11 +11,10 @@
         </span>
       </div>
     </div>
-    <ul class="skin-color" style="margin-top: 5px; list-style-type: none; background-color: #FFFFFF; padding-left: 3px; font-weight: bold">
+    <ul v-if="filters.length > 0" class="skin-color" style="margin-top: 5px; list-style-type: none; background-color: #FFFFFF; padding-left: 3px; font-weight: bold">
       <li v-for="filter in filters" v-t-plugin="`qplotly.filters.${filter}`"></li>
     </ul>
   </div>
-  
 </template>
 
 <script>
@@ -23,7 +22,7 @@
     name: "plotheader",
     props:{
       index: {
-        tyep: Number
+        type: Number
       },
       layerId:{
         type: String
@@ -39,7 +38,7 @@
            active: false
           },
           selection: {
-           active: true
+           active: false
           },
           geolayer: {
             show: false,
@@ -65,7 +64,10 @@
       },
       toggleBBoxTool(){
         this.tools.geolayer.active = !this.tools.geolayer.active;
-        this.$emit('toggle-bbox-tool', {index:this.index, active:this.tools.geolayer.active});
+        this.$emit('toggle-bbox-tool', {
+          index: this.index,
+          active:this.tools.geolayer.active
+        });
       }
     }
   }

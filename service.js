@@ -179,20 +179,13 @@ function Service(){
 
     GUI.addComponent(QPlotlySiderBarComponent, 'sidebar', options);
 
-    /*this.mapService.onbefore('controlClick', ({target})=>{
-      if (target.name !== 'zoombox' && QPlotlySiderBarComponent.getOpen()) {
-        QPlotlySiderBarComponent.click({
-          open: false
-        });
-      }
-    });*/
-
     this.once('clear', () => GUI.removeComponent('qplotly', 'sidebar', options));
   };
 
   this.toggleLayerFilter = function(layerId){
     const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
     layer && layer.toggleFilterToken();
+    this.updateCharts();
   };
 
   //load scripts from server
@@ -211,7 +204,7 @@ function Service(){
   this.setActiveFilters = function(plot){
     plot.filters = [];
     plot.tools.filter.active && plot.filters.push('filtertoken');
-    if (plot.tools.geolayer.active) plot.filters.length ? plot.filters[0] = 'in_bbox_filtertoken' : plot.filters.push('in_bbox');
+    if (plot.tools.geolayer.active) plot.filters.length ? plot.filters.splice(0, 1, 'in_bbox_filtertoken')  : plot.filters.push('in_bbox');
   };
 
   this.getChartsAndEmit = async function({plotIds} ={}){
@@ -534,7 +527,6 @@ function Service(){
         Promise.allSettled(promises)
           .then(async promisesData =>{
             promisesData.forEach((promise, index) =>{
-
               if (promise.status === 'fulfilled' && promise.value.result) {
                 const {data, relation, relations} = promise.value;
                 if (relation) return; // in case of relation do nothing

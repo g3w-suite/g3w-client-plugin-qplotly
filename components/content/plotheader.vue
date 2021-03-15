@@ -12,7 +12,7 @@
       </div>
     </div>
     <ul v-if="filters.length > 0" class="skin-color" style="margin-top: 5px; list-style-type: none; background-color: #FFFFFF; padding-left: 3px; font-weight: bold">
-      <li v-for="filter in filters" v-t-plugin="`qplotly.filters.${filter}`"></li>
+      <li v-for="filter in filters" :key="filter" v-t-plugin="`qplotly.filters.${filter}`"></li>
     </ul>
   </div>
 </template>

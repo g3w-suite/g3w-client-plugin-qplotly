@@ -6,13 +6,13 @@ export default {
     no_plots : 'Nessun grafico da mostrare. Aggiungi almeno un grafico',
     no_data: "Nessun dato disponibile",
     filters: {
-      in_bbox: "Sul grafico sono attivi filtri basati sull'area di mappa visualizzata",
-      filtertoken: "Sul grafico sono attivi filtri basati su selezione elementi",
-      in_bbox_filtertoken: "Sul grafico sono attivi filtri basati sull'area di mappa visualizzata e su selezione elementi",
+      in_bbox: "I dati mostrati nel grafico sono filtrati in base alle geometrie visibili sulla mappa",
+      filtertoken: "I dati mostrati nel grafico sono filtrati in base alle geometrie/records selezionati",
+      in_bbox_filtertoken: "I dati mostrati nel grafico sono filtrati in base alle geometrie/records selezionati e visibili sulla mappa",
       relation: {
-        in_bbox: "Sul grafico sono attivi filtri basati sull'area di mappa visualizzata relativi alla tabella padre",
-        filtertoken: "Sul grafico sono attivi filtri basati su selezione elementi relativi alla tabella padre",
-        in_bbox_filtertoken: "Sul grafico sono attivi filtri basati sull'area di mappa visualizzata e su selezione elementi relativi alla tabella padre"
+        in_bbox: "I dati mostrati nel grafico sono filtrati in base alle geometrie di riferimento (genitori) visibili sulla mappa",
+        filtertoken: "I dati mostrati nel grafico sono filtrati in base alle geometrie/records selezionati di riferimento (genitori)",
+        in_bbox_filtertoken: "I dati mostrati nel grafico sono filtrati in base alle geometrie/records di riferimento (genitori) selezionati e visibili sulla mappa"
       }
     }
   },
@@ -24,13 +24,13 @@ export default {
     no_data: "No Data available",
     in_bbox: 'Map',
     filters: {
-      in_bbox: "Filters based on the displayed map area are active on the graph",
-      filtertoken: "Filters based on element selection are active on the chart",
-      in_bbox_filtertoken: "Filters based on the displayed map and on element selection area are active on the graph",
+      in_bbox: "The data ​​shown in the plot are filtered according to the geometries visible on the map",
+      filtertoken: "The data ​​shown in the plot are filtered according to the selected geometries/records",
+      in_bbox_filtertoken: "The data ​​shown in the plot are filtered according to the geometries/records selected and visible on the map",
       relation: {
-        in_bbox: "Filters based on the map area displayed relative to the parent table are active on the chart",
-        filtertoken: "Filters based on element selection relative to the parent table are active on the chart",
-        in_bbox_filtertoken: "Filters based on the map area displayed and on the selection of elements related to the parent table are active on the chart"
+        in_bbox: "The data​​ shown in the plot are filtered according to the reference (parents) geometries visible on the map",
+        filtertoken: "The data ​​shown in the plot are filtered according to the reference (parents) selected geometries/records",
+        in_bbox_filtertoken: "The data ​​shown in the plot are filtered according to the reference (parents) geometries/records selected and visible on the map"
       }
     }
   },
@@ -42,13 +42,13 @@ export default {
     no_data: "No Data available",
     in_bbox: 'Map',
     filters: {
-      in_bbox: "Filters based on the displayed map area are active on the graph",
-      filtertoken: "Filters based on element selection are active on the chart",
-      in_bbox_filtertoken: "Filters based on the displayed map and on element selection area are active on the graph",
+      in_bbox: "The data ​​shown in the plot are filtered according to the geometries visible on the map",
+      filtertoken: "The data ​​shown in the plot are filtered according to the selected geometries/records",
+      in_bbox_filtertoken: "The data ​​shown in the plot are filtered according to the geometries/records selected and visible on the map",
       relation: {
-        in_bbox: "Filters based on the map area displayed relative to the parent table are active on the chart",
-        filtertoken: "Filters based on element selection relative to the parent table are active on the chart",
-        in_bbox_filtertoken: "Filters based on the map area displayed and on the selection of elements related to the parent table are active on the chart"
+        in_bbox: "The data​​ shown in the plot are filtered according to the reference (parents) geometries visible on the map",
+        filtertoken: "The data ​​shown in the plot are filtered according to the reference (parents) selected geometries/records",
+        in_bbox_filtertoken: "The data ​​shown in the plot are filtered according to the reference (parents) geometries/records selected and visible on the map"
       }
     }
   },
@@ -60,13 +60,13 @@ export default {
     no_data: "No Data available",
     in_bbox: 'Map',
     filters: {
-      in_bbox: "Filters based on the displayed map area are active on the graph",
-      filtertoken: "Filters based on element selection are active on the chart",
-      in_bbox_filtertoken: "Filters based on the displayed map and on element selection area are active on the graph",
+      in_bbox: "The data ​​shown in the plot are filtered according to the geometries visible on the map",
+      filtertoken: "The data ​​shown in the plot are filtered according to the selected geometries/records",
+      in_bbox_filtertoken: "The data ​​shown in the plot are filtered according to the geometries/records selected and visible on the map",
       relation: {
-        in_bbox: "Filters based on the map area displayed relative to the parent table are active on the chart",
-        filtertoken: "Filters based on element selection relative to the parent table are active on the chart",
-        in_bbox_filtertoken: "Filters based on the map area displayed and on the selection of elements related to the parent table are active on the chart"
+        in_bbox: "The data​​ shown in the plot are filtered according to the reference (parents) geometries visible on the map",
+        filtertoken: "The data ​​shown in the plot are filtered according to the reference (parents) selected geometries/records",
+        in_bbox_filtertoken: "The data ​​shown in the plot are filtered according to the reference (parents) geometries/records selected and visible on the map"
       }
     }
   }

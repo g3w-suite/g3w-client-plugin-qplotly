@@ -616,7 +616,6 @@ function Service(){
           if (container) {
             component.$once('hook:mounted', async function(){
               container.append(this.$el);
-              GUI.emit('resize');
             });
             component.$mount();
             this.chartContainers.find(queryResultsContainer => container.selector === queryResultsContainer.container.selector).component = component;

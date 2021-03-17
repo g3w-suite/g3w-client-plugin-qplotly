@@ -142,7 +142,7 @@ function Service(){
    this.queryResultService.addLayersPlotIds([...layersId]);
    this.queryResultService.on('show-chart', this.showChartsOnContainer);
    this.queryResultService.on('hide-chart', this.clearChartContainers);
-   this.closeComponentKeyEevent = this.queryResultService.onceafter('closeComponent', this.clearChartContainers);
+   this.closeComponentKeyEevent = this.queryResultService.onafter('closeComponent', this.clearChartContainers);
    this.setContentChartTools();
   };
 
@@ -641,7 +641,9 @@ function Service(){
         })
       } else {
         if (container) this.clearChartContainers(container);
-        else GUI.closeContent();
+        else {
+          GUI.closeContent();
+        }
         resolve();
       }
     })

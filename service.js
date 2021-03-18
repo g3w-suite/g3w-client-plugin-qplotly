@@ -75,8 +75,7 @@ function Service(){
       }
     }, 1500);
     this.config.plots.forEach((plot, index)=>{
-     this.state.positions.push(plot.id); 
-     plot.show = index === 0;
+     this.state.positions.push(plot.id);
      plot.withrelations = null;
      plot.request = true;
      plot.loaded = plot.show;
@@ -641,9 +640,7 @@ function Service(){
         })
       } else {
         if (container) this.clearChartContainers(container);
-        else {
-          GUI.closeContent();
-        }
+        else GUI.closeContent();
         resolve();
       }
     })

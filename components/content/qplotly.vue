@@ -31,7 +31,8 @@
   const {resizeMixin} = g3wsdk.gui.vue.Mixins;
   const TYPE_VALUES = {
     'pie': 'values',
-    'scatterternary': 'a'
+    'scatterternary': 'a',
+    'scatterpolar': 'r'
   };
   export default {
     name: "qplotly",

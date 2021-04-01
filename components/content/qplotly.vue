@@ -3,7 +3,7 @@
     <div class="qplotly-tools" style="border-radius: 3px; background-color: #FFFFFF; display: flex; padding: 3px; position: absolute; top: 3px; font-size:1.4em; right: 15px;">
       <span v-if ="tools.map.show" class="skin-color action-button skin-tooltip-bottom" v-disabled="state.loading" data-placement="bottom" data-toggle="tooltip" style="font-weight: bold; margin-left: 2px"
         :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']"
-        @click="showMapFeaturesCharts" v-t-tooltip.create="'layer_selection_filter.tools.show_features_on_map'" ></span>
+        @click="showMapFeaturesCharts" v-t-tooltip.create="'plugins.qplotly.tooltip.show_all_features_on_map'" ></span>
     </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; position: relative" :style="{height: `${height}%`}">

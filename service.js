@@ -512,7 +512,7 @@ function Service(){
                 destinationCrs: plot.crs
               }).join(',');
             promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
-              url: `${BASEQPLOTLYAPIURL}/${plot.id}`,
+              url: `${BASEQPLOTLYAPIURL}/${plot.qgs_layer_id}/${plot.id}`,
               params: {
                 withrelations,
                 filtertoken: ApplicationState.tokens.filtertoken || undefined,

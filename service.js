@@ -1,6 +1,5 @@
 import MultiPlot from './components/sidebar/multiplot';
 const { base, inherit, XHR , debounce} =  g3wsdk.core.utils;
-const { transformBBOX } = g3wsdk.core.geoutils;
 const GUI = g3wsdk.gui.GUI;
 const ApplicationState = g3wsdk.core.ApplicationState;
 const ComponentsFactory = g3wsdk.gui.ComponentsFactory;
@@ -505,12 +504,7 @@ function Service(){
             }
             const relationonetomany = this.relationData ? `${this.relationData.relations.find(relation => plot.qgs_layer_id === relation.referencingLayer).id}|${this.relationData.fid}` : undefined;
             let in_bbox;
-            if (addInBBoxParam && this.customParams.bbox) in_bbox =  plot.crs === this.mapCrs ? this.customParams.bbox :
-              transformBBOX({
-                bbox: this.customParams.bbox.split(','),
-                sourceCrs: this.mapCrs,
-                destinationCrs: plot.crs
-              }).join(',');
+            if (addInBBoxParam && this.customParams.bbox) in_bbox = this.customParams.bbox;
             promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
               url: `${BASEQPLOTLYAPIURL}/${plot.qgs_layer_id}/${plot.id}`,
               params: {

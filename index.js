@@ -1,4 +1,5 @@
 import pluginConfig from './config';
+import MultiPlot from './components/sidebar/multiplot';
 const {base, inherit} = g3wsdk.core.utils;
 const Plugin = g3wsdk.core.plugin.Plugin;
 const Service = require('./service');
@@ -25,7 +26,33 @@ const _Plugin = function() {
   };
 
   this.setupGUI = function(){
-   this.service.createSideBarComponent();
+    const vueComponentObject = MultiPlot({
+      service : this.service
+    });
+    this.createSideBarComponent(vueComponentObject,
+      {
+        id: 'qplotly',
+        title: 'plugins.qplotly.title',
+        open: false,
+        collapsible: true,
+        iconConfig: {
+          color: 'red',
+          icon:'chart-area',
+        },
+        mobile: true,
+        events: {
+          open: {
+            when: 'before',
+            cb: async bool => {
+              await this.service.showChart(bool);
+              !bool && this.config.plots.forEach(plot => plot.loaded = false);
+            }
+          }
+        },
+        sidebarOptions: {
+          position: 1
+        }
+      });
   };
 
   this.unload = function() {

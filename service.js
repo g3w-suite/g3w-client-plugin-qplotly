@@ -1,8 +1,6 @@
-import MultiPlot from './components/sidebar/multiplot';
 const { base, inherit, XHR , debounce} =  g3wsdk.core.utils;
 const GUI = g3wsdk.gui.GUI;
 const ApplicationState = g3wsdk.core.ApplicationState;
-const ComponentsFactory = g3wsdk.gui.ComponentsFactory;
 const PluginService = g3wsdk.core.plugin.PluginService;
 const CatalogLayersStoresRegistry = g3wsdk.core.catalog.CatalogLayersStoresRegistry;
 const QPlotlyComponent = require('./components/content/qplotly');
@@ -142,42 +140,6 @@ function Service(){
    this.queryResultService.on('hide-chart', this.clearChartContainers);
    this.closeComponentKeyEevent = this.queryResultService.onafter('closeComponent', this.clearChartContainers);
    this.setContentChartTools();
-  };
-
-  this.createSideBarComponent = function(){
-    const vueComponentObject = MultiPlot({
-      service : this
-    });
-    const QPlotlySiderBarComponent = ComponentsFactory.build(
-      {
-        vueComponentObject
-      },
-      {
-        id: 'qplotly',
-        title: 'plugins.qplotly.title',
-        open: false,
-        collapsible: true,
-        iconColor: 'red',
-        icon: GUI.getFontClass('chart-area'),
-        mobile: true,
-        events: {
-          open: {
-            when: 'before',
-            cb: async bool => {
-              await this.showChart(bool);
-              !bool && this.config.plots.forEach(plot => plot.loaded = false);
-            }
-          }
-        }
-      }
-    );
-    const options = {
-      position: 1
-    };
-
-    GUI.addComponent(QPlotlySiderBarComponent, 'sidebar', options);
-
-    this.once('clear', () => GUI.removeComponent('qplotly', 'sidebar', options));
   };
 
   this.toggleLayerFilter = function(layerId){

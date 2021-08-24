@@ -589,8 +589,7 @@ function Service(){
                   marginBottom: '20px'
                 }
               },
-              content,
-              perc: 50
+              content
             });
           }
         })

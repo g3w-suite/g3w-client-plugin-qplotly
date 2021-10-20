@@ -1,6 +1,6 @@
 <template>
   <div :id="id" class="skin-color" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
-    <div class="qplotly-tools" style="border-radius: 3px; background-color: #FFFFFF; display: flex; padding: 3px; position: absolute; top: 3px; font-size:1.4em; right: 15px;">
+    <div v-if="showTools" class="qplotly-tools" style="border-radius: 3px; background-color: #FFFFFF; display: flex; padding: 3px; position: absolute; top: 3px; font-size:1.4em; right: 15px;">
       <span v-if ="tools.map.show" class="skin-color action-button skin-tooltip-bottom" v-disabled="state.loading" data-placement="bottom" data-toggle="tooltip" style="font-weight: bold; margin-left: 2px"
         :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']"
         @click="showMapFeaturesCharts" v-t-tooltip.create="'plugins.qplotly.tooltip.show_all_features_on_map'" ></span>
@@ -57,6 +57,11 @@
             disabled: true
           }
         }
+      }
+    },
+    computed: {
+      showTools(){
+        return this.tools.map.show;
       }
     },
     methods: {

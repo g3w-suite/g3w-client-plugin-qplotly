@@ -8,7 +8,7 @@
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; position: relative" :style="{height: `${height}%`}">
       <div v-for="(plotId, index) in order" :key="plotId" style="position:relative;" v-disabled="state.loading"
-           :style="{height: ` ${relationData && relationData.height ? 100 : 100/order.length}%`}">
+           :style="{height: relationData && relationData.height? `${relationData.height}px` : `${100/order.length}%`}">
         <plotheader @toggle-bbox-tool="handleBBoxTools"  @toggle-filter-tool="handleToggleFilter"
           :index="index" :layerId="charts[plotId].layerId" :tools="!relationData ? charts[plotId].tools : undefined"
           :title="charts[plotId].title" :filters="charts[plotId].filters">

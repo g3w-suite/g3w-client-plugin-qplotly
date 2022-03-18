@@ -1,10 +1,5 @@
 <template>
   <div :id="id" class="skin-color" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
-    <div v-if="showTools" class="qplotly-tools" style="border-radius: 3px; background-color: #FFFFFF; display: flex; padding: 3px; position: absolute; top: 3px; font-size:1.4em; right: 15px;">
-      <span v-if ="tools.map.show" class="skin-color action-button skin-tooltip-bottom" v-disabled="state.loading" data-placement="bottom" data-toggle="tooltip" style="font-weight: bold; margin-left: 2px"
-        :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']"
-        @click="showMapFeaturesCharts" v-t-tooltip.create="'plugins.qplotly.tooltip.show_all_features_on_map'" ></span>
-    </div>
     <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
     <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; position: relative" :style="{height: `${height}%`}">
       <div v-for="(plotId, index) in order" :key="plotId" style="position:relative;" v-disabled="state.loading"
@@ -51,18 +46,7 @@
         show: true,
         overflowY: 'none',
         height: 100,
-        order: [],
-        tools: {
-          map: {
-            show: state.geolayer && !this.relationData,
-            disabled: true
-          }
-        }
-      }
-    },
-    computed: {
-      showTools(){
-        return this.tools.map.show;
+        order: []
       }
     },
     methods: {
@@ -236,12 +220,6 @@
     },
     created(){
       this.charts = {};
-    },
-    watch: {
-      async 'state.geolayer'(bool){
-        await this.$nextTick();
-        this.tools.map.show = bool;
-      }
     },
     async mounted(){
       this.mounted = false;

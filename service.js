@@ -1,3 +1,4 @@
+import HeaderContentAction from './components/content/headeraction.vue';
 const { base, inherit, XHR , debounce} =  g3wsdk.core.utils;
 const GUI = g3wsdk.gui.GUI;
 const ApplicationState = g3wsdk.core.ApplicationState;
@@ -579,16 +580,41 @@ function Service(){
             this.onceafter('chartsReady', ()=> {
               resolve()
             });
-            //this.mapService.deactiveMapControls();
+            const self = this;
             GUI.showContent({
               closable: false,
               title: 'plugins.qplotly.title',
               style: {
                 title: {
-                  fontSize: '1.3em',
-                  marginBottom: '20px'
+                  fontSize: '1.3em'
                 }
               },
+              headertools: [
+                Vue.extend({
+                  ...HeaderContentAction,
+                  data(){
+                    return {
+                      state: self.state,
+                      tools: {
+                        map: {
+                          show: self.state.geolayer && !self.relationData,
+                          disabled: true
+                        }
+                      }
+                    }
+                  },
+                  methods: {
+                    async showMapFeaturesCharts(){
+                      const {charts, order } = await self.showMapFeaturesAllCharts(true);
+                      self.emit('change-charts',{
+                        charts,
+                        order
+                      });
+                    }
+                  }
+
+                })
+              ],
               content
             });
           }

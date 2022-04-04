@@ -21,7 +21,6 @@
 <script>
   import PlotHeader from './plotheader.vue';
   const NoDataComponent = require('./nodata');
-  const { tPlugin } = g3wsdk.core.i18n;
   const GUI = g3wsdk.gui.GUI;
   const {getUniqueDomId} = g3wsdk.core.utils;
   const {resizeMixin} = g3wsdk.gui.vue.Mixins;

@@ -115,7 +115,6 @@ function Service(){
      layer.on('filtertokenchange', this.changeChartsEventHandler)
    });
    BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;
-   this.loadscripts();
    this.queryResultService = GUI.getComponent('queryresults').getService();
    this.showChartsOnContainer = (ids, container, relationData) => {
      const find = this.chartContainers.find(queryresultcontainer => container.selector === queryresultcontainer.container.selector);
@@ -125,6 +124,7 @@ function Service(){
      });
      this.showChart(!find, ids, container, relationData);
    };
+   this.emit('ready');
 
    this.clearChartContainers = container => {
      this.chartContainers = this.chartContainers.filter(queryResultsContainer =>  {
@@ -147,19 +147,6 @@ function Service(){
     const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
     layer && layer.toggleFilterToken();
     this.updateCharts();
-  };
-
-  //load scripts from server
-  this.loadscripts = async function(){
-    for (const script of this.config.jsscripts) {
-      const promise = new Promise((resolve, reject) => {
-        $.getScript(script)
-          .done(() => resolve())
-          .fail(() => reject())
-      });
-      await promise;
-    }
-    this.emit('ready');
   };
 
   this.setActiveFilters = function(plot){

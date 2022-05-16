@@ -29,7 +29,7 @@ const _Plugin = function() {
     const vueComponentObject = MultiPlot({
       service : this.service
     });
-    this.createSideBarComponent(vueComponentObject,
+    const sidebarComponent = this.createSideBarComponent(vueComponentObject,
       {
         id: 'qplotly',
         title: 'plugins.qplotly.title',

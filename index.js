@@ -1,7 +1,8 @@
 import pluginConfig from './config';
 import MultiPlot from './components/sidebar/multiplot';
 const {base, inherit} = g3wsdk.core.utils;
-const Plugin = g3wsdk.core.plugin.Plugin;
+const {GUI} = g3wsdk.gui;
+const {Plugin} = g3wsdk.core.plugin;
 const Service = require('./service');
 const addI18nPlugin = g3wsdk.core.i18n.addI18nPlugin;
 
@@ -29,7 +30,7 @@ const _Plugin = function() {
     const vueComponentObject = MultiPlot({
       service : this.service
     });
-    this.createSideBarComponent(vueComponentObject,
+    const sidebarItemComponent = this.createSideBarComponent(vueComponentObject,
       {
         id: 'qplotly',
         title: 'plugins.qplotly.title',
@@ -53,6 +54,11 @@ const _Plugin = function() {
           position: 1
         }
       });
+    GUI.on('closecontent', () => {
+      setTimeout(()=>{
+        sidebarItemComponent.getOpen() && sidebarItemComponent.click();
+      })
+    })
   };
 
   this.unload = function() {

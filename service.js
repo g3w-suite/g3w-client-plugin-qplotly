@@ -1,9 +1,9 @@
 import HeaderContentAction from './components/content/headeraction.vue';
 const { base, inherit, XHR , debounce} =  g3wsdk.core.utils;
-const GUI = g3wsdk.gui.GUI;
-const ApplicationState = g3wsdk.core.ApplicationState;
-const PluginService = g3wsdk.core.plugin.PluginService;
-const CatalogLayersStoresRegistry = g3wsdk.core.catalog.CatalogLayersStoresRegistry;
+const {GUI} = g3wsdk.gui;
+const {ApplicationState} = g3wsdk.core;
+const {PluginService} = g3wsdk.core.plugin;
+const {CatalogLayersStoresRegistry} = g3wsdk.core.catalog;
 const QPlotlyComponent = require('./components/content/qplotly');
 let BASEQPLOTLYAPIURL = '/qplotly/api/trace';
 
@@ -437,6 +437,7 @@ function Service(){
       // check if is supported
       if (Promise.allSettled) {
         const promises = [];
+        const chartsplots = [];
         plots.forEach(plot => {
           let promise;
           // in case of no request (relation) and not called from query
@@ -452,31 +453,42 @@ function Service(){
               const inuserelation = plot.withrelations.filter(plotrelation => plotrelation.use);
               withrelations = inuserelation.length ? inuserelation.map(plotrelation=> plotrelation.id).join(','): undefined;
             }
-            const relationonetomany = this.relationData ? `${this.relationData.relations.find(relation => plot.qgs_layer_id === relation.referencingLayer).id}|${this.relationData.fid}` : undefined;
+            let relationsonetomany = [undefined];
             let in_bbox;
             if (addInBBoxParam && this.customParams.bbox) in_bbox = this.customParams.bbox;
-            promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
-              url: `${BASEQPLOTLYAPIURL}/${plot.qgs_layer_id}/${plot.id}`,
-              params: {
-                withrelations,
-                filtertoken: ApplicationState.tokens.filtertoken || undefined,
-                relationonetomany,
-                in_bbox
-              }
-            });
+            if (this.relationData) {
+              const chartsRelations = this.relationData.relations
+                .filter(relation => plot.qgs_layer_id === relation.referencingLayer)
+                .map(relation => `${relation.id}|${this.relationData.fid}`);
+              relationsonetomany = chartsRelations.length ? chartsRelations : relationsonetomany;
+            }
+            relationsonetomany.forEach(relationonetomany =>{
+              chartsplots.push(plot);
+              promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
+                url: `${BASEQPLOTLYAPIURL}/${plot.qgs_layer_id}/${plot.id}`,
+                params: {
+                  withrelations,
+                  filtertoken: ApplicationState.tokens.filtertoken || undefined,
+                  relationonetomany,
+                  in_bbox
+                }
+              });
+              promises.push(promise);
+            })
           }
-          promises.push(promise);
         });
         Promise.allSettled(promises)
-          .then(async promisesData =>{
+          .then(async promisesData => {
             promisesData.forEach((promise, index) =>{
               if (promise.status === 'fulfilled' && promise.value.result) {
                 const {data, relation, relations} = promise.value;
                 if (relation) return; // in case of relation do nothing
-                const plot = plots[index];
+                const plot = chartsplots[index];
                 this.setActiveFilters(plot);
-                chartsObject.charts[plot.id] = {};
-                const chart = chartsObject.charts[plot.id];
+                // in case of multiple chart plot of same plot
+                const chart = {};
+                if (chartsObject.charts[plot.id]) chartsObject.charts[plot.id].push(chart);
+                else chartsObject.charts[plot.id] = [chart];
                 chart.filters = plot.filters;
                 chart.layout = plot.plot.layout;
                 chart.tools = plot.tools;
@@ -493,8 +505,9 @@ function Service(){
                       plots.find((plot, index) => {
                         if (plot.id === id){
                           this.setActiveFilters(plot);
-                          chartsObject.charts[plot.id] = {};
-                          const chart = chartsObject.charts[plot.id];
+                          const chart = {};
+                          if (chartsObject.charts[plot.id]) chartsObject.charts[plot.id].push(chart);
+                          else hartsObject.charts[plot.id] = [chart];
                           const layout = plot.plot.layout;
                           layout.title = `${this._relationIdName[relationId]} ${layout._title}`;
                           if (fatherPlotFilters.length) plot.filters.push(`relation.${fatherPlotFilters[0]}`);
@@ -511,10 +524,11 @@ function Service(){
                   });
                 }
               } else {
-                const plot = plots[index];
+                const plot = chartsObject[index];
                 this.setActiveFilters(plot);
-                chartsObject.charts[plot.id] = {};
-                const chart = chartsObject.charts[plot.id];
+                const chart = {};
+                if (chartsObject.charts[plot.id]) chartsObject.charts.push(chart);
+                else chartsObject.charts = [chart];
                 chart.filters = plot.filters;
                 chart.layout = plot.plot.layout;
                 chart.tools = plot.tools;
@@ -538,11 +552,11 @@ function Service(){
     }
   };
 
-  this.getChartLayout = function (id) {
+  this.getChartLayout = function() {
     return this.config.plots[0].layout;
   };
 
-  this.getChartConfig = function(id){
+  this.getChartConfig = function(){
     return this.config.plots[0].config;
   };
 

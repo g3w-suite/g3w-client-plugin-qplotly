@@ -145,11 +145,10 @@
       },
       async setCharts({charts={}, order=[]}={}){
         this.nCharts = 0;
-        Object.values(this.charts).forEach(charts => this.nCharts+=charts.length);
+        Object.values(charts).forEach(charts => this.nCharts+=charts.length);
         Object.keys(charts).forEach(plotId =>{
+          this.charts[plotId] = [];
           charts[plotId].forEach(chart =>{
-            this.nCharts+=1;
-            if (this.charts[plotId] === undefined) this.charts[plotId] = [];
             this.charts[plotId].push({
               chart,
               state: Vue.observable({

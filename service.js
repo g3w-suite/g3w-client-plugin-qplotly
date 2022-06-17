@@ -507,7 +507,7 @@ function Service(){
                           this.setActiveFilters(plot);
                           const chart = {};
                           if (chartsObject.charts[plot.id]) chartsObject.charts[plot.id].push(chart);
-                          else hartsObject.charts[plot.id] = [chart];
+                          else chartsObject.charts[plot.id] = [chart];
                           const layout = plot.plot.layout;
                           layout.title = `${this._relationIdName[relationId]} ${layout._title}`;
                           if (fatherPlotFilters.length) plot.filters.push(`relation.${fatherPlotFilters[0]}`);

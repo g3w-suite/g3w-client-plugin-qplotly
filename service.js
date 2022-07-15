@@ -650,6 +650,6 @@ function Service(){
 
 inherit(Service, PluginService);
 
-module.exports = new Service;
+export default new Service();
 
  

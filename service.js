@@ -77,7 +77,7 @@ function Service(){
      plot.withrelations = null;
      plot.request = true;
      plot.loaded = plot.show;
-     plot.plot.layout._title = plot.plot.layout.title;
+     plot.plot.layout._title = plot.plot.layout.title.text;
      plot.label = plot.plot.layout.title ||  `Plot id [${plot.id}]`;
      // set automargin
      plot.plot.layout.xaxis.automargin = true;

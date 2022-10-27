@@ -221,7 +221,7 @@
       },
 
       async showMapFeaturesCharts(){
-        const {charts, order } = await this.$options.service.showMapFeaturesAllCharts(true);
+        const {charts, order} = await this.$options.service.showMapFeaturesAllCharts(true);
         this.setCharts({
           charts,
           order

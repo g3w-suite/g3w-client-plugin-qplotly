@@ -383,9 +383,11 @@ function Service(){
       }))
     });
     try {
+      // set use of relation based on map toggled or filtertoken active
+      const use = this.state.tools.map.toggled || typeof ApplicationState.tokens.filtertoken !== 'undefined';
       const plotIds = this.getPlotsIdsToLoad({
         plots: activeGeolayerPlots,
-        use: true
+        use
       });
       charts = await this.getCharts({
         plotIds
@@ -439,6 +441,8 @@ function Service(){
       if (Promise.allSettled) {
         const promises = [];
         const chartsplots = [];
+        // set that register already relation loaded to avoid to replace the same plot multi time
+        const relationIdAlreadyLoaded = new Set();
         plots.forEach(plot => {
           let promise;
           // in case of no request (relation) and not called from query
@@ -451,7 +455,12 @@ function Service(){
             const addInBBoxParam = this.keyMapMoveendEvent.plotIds.length > 0 ? this.keyMapMoveendEvent.plotIds.filter(plotIds => plotIds.active).map(plotId => plotId.id).indexOf(plot.id) !== -1 : true;
             let withrelations;
             if (plot.withrelations) {
-              const inuserelation = plot.withrelations.filter(plotrelation => plotrelation.use);
+              const inuserelation = plot.withrelations.filter(plotrelation => {
+                if (plotrelation.use && !relationIdAlreadyLoaded.has(plotrelation.id)) {
+                  relationIdAlreadyLoaded.add(plotrelation.id);
+                  return true;
+                }
+              });
               withrelations = inuserelation.length ? inuserelation.map(plotrelation=> plotrelation.id).join(','): undefined;
             }
             let relationsonetomany = [undefined];
@@ -614,7 +623,6 @@ function Service(){
                       });
                     }
                   }
-
                 })
               ],
               content

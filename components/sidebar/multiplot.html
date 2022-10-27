@@ -2,7 +2,7 @@
   <li v-for="plot in plots" :key="plot.id">
     <input type="checkbox" :id="plot.id" class="magic-checkbox" v-model="plot.show" @change="addRemovePlot(plot)" >
     <label :class="{'g3w-disabled': loading}" :for="plot.id" style="display:flex; justify-content: space-between; align-items: center">
-      <span style="white-space: pre-wrap">{{plot.label.text}}</span>
+      <span style="white-space: pre-wrap">{{ plot.label }}</span>
       <span>{{plot.plot.type}}</span>
     </label>
   </li>

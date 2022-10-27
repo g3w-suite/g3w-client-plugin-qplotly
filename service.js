@@ -1,5 +1,5 @@
 import HeaderContentAction from './components/content/headeraction.vue';
-const { base, inherit, XHR , debounce} =  g3wsdk.core.utils;
+const { base, inherit, XHR , debounce, toRawType} =  g3wsdk.core.utils;
 const {GUI} = g3wsdk.gui;
 const {ApplicationState} = g3wsdk.core;
 const {PluginService} = g3wsdk.core.plugin;
@@ -73,12 +73,13 @@ function Service(){
       }
     }, 1500);
     this.config.plots.forEach((plot, index)=>{
+     const title = toRawType(plot.plot.layout.title) === 'Object' ? plot.plot.layout.title.text : plot.plot.layout.title;
      this.state.positions.push(plot.id);
      plot.withrelations = null;
      plot.request = true;
      plot.loaded = plot.show;
-     plot.plot.layout._title = plot.plot.layout.title.text;
-     plot.label = plot.plot.layout.title ||  `Plot id [${plot.id}]`;
+     plot.plot.layout._title = title ;
+     plot.label = title ||  `Plot id [${plot.id}]`;
      // set automargin
      plot.plot.layout.xaxis.automargin = true;
      plot.plot.layout.yaxis.automargin = true;

@@ -144,7 +144,6 @@
         }
       },
       async setCharts({charts={}, order=[]}={}){
-        this.nCharts = 0;
         Object.values(charts).forEach(charts => this.nCharts+=charts.length);
         Object.keys(charts).forEach(plotId =>{
           this.charts[plotId] = [];
@@ -166,7 +165,9 @@
           await this.calculateHeigths(visibleCharts);
           await this.drawAllCharts();
         }
-        this.$options.service.chartsReady();
+        setTimeout(()=>{
+          this.$options.service.chartsReady();
+        })
       },
 
       async resize(){
@@ -232,6 +233,8 @@
       this.delayType = 'debounce';
     },
     created(){
+      console.log('qui')
+      this.nCharts = 0;
       this.charts = {};
     },
     async mounted(){
@@ -256,6 +259,7 @@
       this.relationData && GUI.off('pop-content', this.resize);
       this.$options.service.clearLoadedPlots();
       this.charts = null;
+      this.nCharts = 0;
     }
   }
 </script>

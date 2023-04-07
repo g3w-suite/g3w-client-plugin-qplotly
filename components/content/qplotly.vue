@@ -1,22 +1,58 @@
 <template>
-  <div :id="id" class="skin-color" :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
-    <bar-loader :loading="state.loading" v-if="wrapped"></bar-loader>
-    <div v-if="show" class="plot_divs_content" style="width: 100%; background-color: #FFFFFF; position: relative" :style="{height: `${height}%`}">
-      <div v-for="(plotId, index) in order" :key="plotId" style="position:relative;" v-disabled="state.loading"
-           :style="{height: relationData && relationData.height ? `${relationData.height}px` : `${100/nCharts}%`}">
-        <template  v-for="({chart, state}, index) in charts[plotId]">
-          <plotheader @toggle-bbox-tool="handleBBoxTools"  @toggle-filter-tool="handleToggleFilter"
-                      :index="index" :layerId="chart.layerId" :tools="!relationData ? chart.tools : undefined"
-                      :title="chart.title" :filters="chart.filters">
-          </plotheader>
-          <div class="plot_div_content" :ref="`${plotId}_${index}`" style="width:95%; margin: auto; position:relative"></div>
-        </template>
+  <div
+    :id="id"
+    class="skin-color"
+    :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
+
+      <bar-loader :loading="state.loading" v-if="wrapped"/>
+
+      <div
+        v-if="show"
+        class="plot_divs_content"
+        style="width: 100%; background-color: #FFFFFF; position: relative"
+        :style="{height: `${height}%`}">
+
+        <div
+          v-for="(plotId, index) in order"
+          :key="plotId"
+          style="position:relative;"
+          v-disabled="state.loading"
+          :style="{height: relationData && relationData.height ? `${relationData.height}px` : `${100/nCharts}%`}">
+
+          <template
+            v-for="({chart, state}, index) in charts[plotId]">
+            <plotheader
+              @toggle-bbox-tool="handleBBoxTools"  @toggle-filter-tool="handleToggleFilter"
+              :index="index" :layerId="chart.layerId" :tools="!relationData ? chart.tools : undefined"
+              :title="chart.title" :filters="chart.filters"/>
+
+            <div
+              class="plot_div_content"
+              :ref="`${plotId}_${index}`"
+              style="width:95%; margin: auto; position:relative">
+            </div>
+
+          </template>
+
       </div>
+
     </div>
-    <div id="no_plots" v-else style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white" class="skin-color">
-      <h4 style="font-weight: bold;" v-t-plugin="'qplotly.no_plots'"></h4>
+
+    <div
+      v-else
+      id="no_plots"
+      style="height: 100%; width: 100%; display: flex; justify-content: center; align-items: center; background-color: white"
+      class="skin-color">
+
+        <h4
+          style="text-align: center; font-weight: bold;"
+          v-t-plugin="'qplotly.no_plots'">
+        </h4>
+
     </div>
+
   </div>
+
 </template>
 
 <script>
@@ -144,7 +180,11 @@
         }
       },
       async setCharts({charts={}, order=[]}={}){
-        Object.values(charts).forEach(charts => this.nCharts+=charts.length);
+        Object.entries(charts).forEach(([id, charts]) => {
+          if ("undefined" === typeof Object.keys(this.charts).find(chartId => chartId === id)) {
+            this.nCharts+=charts.length
+          }
+        });
         Object.keys(charts).forEach(plotId =>{
           this.charts[plotId] = [];
           charts[plotId].forEach(chart =>{

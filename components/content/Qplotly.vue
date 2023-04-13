@@ -56,16 +56,20 @@
 </template>
 
 <script>
-  import PlotHeader from './plotheader.vue';
-  const NoDataComponent = require('./nodata');
+  import PlotHeader from './Plotheader.vue';
+
   const {GUI} = g3wsdk.gui;
   const {getUniqueDomId} = g3wsdk.core.utils;
   const {resizeMixin} = g3wsdk.gui.vue.Mixins;
+
+  const NoDataComponent = require('./nodata');
+
   const TYPE_VALUES = {
     'pie': 'values',
     'scatterternary': 'a',
     'scatterpolar': 'r'
   };
+
   export default {
     name: "qplotly",
     mixins: [resizeMixin],
@@ -86,6 +90,7 @@
         nCharts: 0
       }
     },
+
     methods: {
       /**
        *
@@ -339,7 +344,9 @@
       this.charts = {};
     },
     async mounted(){
+
       this.mounted = false;
+
       await this.$nextTick();
 
       this.$options.service.on('change-charts', this.setCharts);
@@ -351,10 +358,7 @@
         relationData: this.relationData
       });
 
-      await this.setCharts({
-        charts,
-        order
-      });
+      await this.setCharts({charts, order});
 
       this.relationData && GUI.on('pop-content', this.resize);
 
@@ -363,10 +367,15 @@
 
     beforeDestroy() {
       this.$options.service.off('change-charts', this.setCharts);
+
       this.$options.service.off('show-hide-chart', this.showHideChart);
+
       this.relationData && GUI.off('pop-content', this.resize);
+
       this.$options.service.clearLoadedPlots();
+
       this.charts = null;
+
       this.nCharts = 0;
     }
   }

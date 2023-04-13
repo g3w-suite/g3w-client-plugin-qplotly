@@ -1,10 +1,13 @@
-import HeaderContentAction from './components/content/headeraction.vue';
-const { base, inherit, XHR , debounce, toRawType} =  g3wsdk.core.utils;
+import HeaderContentAction from './components/content/Headeraction.vue';
+
+const {base,inherit,XHR,debounce,toRawType} =  g3wsdk.core.utils;
 const {GUI} = g3wsdk.gui;
 const {ApplicationState} = g3wsdk.core;
 const {PluginService} = g3wsdk.core.plugin;
 const {CatalogLayersStoresRegistry} = g3wsdk.core.catalog;
+
 const QPlotlyComponent = require('./components/content/qplotly');
+
 let BASEQPLOTLYAPIURL = '/qplotly/api/trace';
 
 function Service(){
@@ -323,7 +326,9 @@ function Service(){
     if (plot.tools.geolayer.show) {
       // get active boolean from map toggled
       plot.tools.geolayer.active = this.state.tools.map.toggled;
+      // in case of already register move map event
       if (this.keyMapMoveendEvent.key) {
+        // add current plot id
         this.keyMapMoveendEvent.plotIds.push({
           id: plot.id,
           active: this.state.tools.map.toggled
@@ -560,7 +565,7 @@ function Service(){
   };
 
   /**
-   *
+   * Method to update charts
    * @param layerIds
    * @returns {Promise<void>}
    */

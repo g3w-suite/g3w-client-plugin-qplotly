@@ -78,7 +78,7 @@
     },
     data(){
       this.id = getUniqueDomId();
-      this.wrapped = !!this.$options.ids;
+      this.wrapped = "undefined" !== typeof this.$options.ids;
       this.relationData = this.$options.relationData;
       const state = this.$options.service.state;
       return {
@@ -123,6 +123,7 @@
           }, true);
         },true);
         const {charts, order} = await this.$options.service.showMapFeaturesSubPlotsCharts(plotIds);
+        
         this.setCharts({
           charts,
           order
@@ -169,7 +170,9 @@
        * @returns {Promise<void>}
        */
       async resizePlots(){
-        !this.wrapped && await this.$options.service.updateCharts();
+        if (false === this.wrapped) {
+          await this.$options.service.updateCharts();
+        }
         const promises = [];
         this.order.forEach(plotId =>{
           this.charts[plotId].forEach((chart, index) =>{
@@ -221,7 +224,8 @@
        * @returns {Promise<void>}
        */
       async setCharts({charts={}, order=[]}={}){
-
+        
+        // get number of show plots
         this.nCharts = this.$options.service.getNumberOfShowPlots();
 
         Object.keys(charts).forEach((plotId) => {
@@ -230,6 +234,7 @@
 
             this.charts[plotId].push({
               chart,
+              // set reactive state by Vue.observable
               state: Vue.observable({
                 loading: false
               })
@@ -237,20 +242,24 @@
 
           })
         });
-        const visibleCharts = this.nCharts;
+        
 
-        this.show = visibleCharts > 0;
+        this.show = this.nCharts > 0;
 
         this.order = order;
 
         this.$nextTick();
 
         if (this.show) {
-          await this.calculateHeigths(visibleCharts);
+          
+          await this.calculateHeigths(this.nCharts);
+          
           await this.drawAllCharts();
         }
-        setTimeout(()=> {
+        setTimeout(() => {
+          
           this.$options.service.chartsReady();
+          
         })
       },
 
@@ -267,7 +276,7 @@
        * @param domElement
        */
       setChartPlotHeigth(domElement){
-        setTimeout(()=>{
+        setTimeout(() => {
           const jqueryContent = $(domElement);
           domElement.style.height = `${jqueryContent.parent().outerHeight() - jqueryContent.siblings().outerHeight()}px`;
         })
@@ -329,6 +338,7 @@
        */
       async showMapFeaturesCharts(){
         const {charts, order} = await this.$options.service.showMapFeaturesAllCharts(true);
+        
         this.setCharts({
           charts,
           order
@@ -348,16 +358,19 @@
       this.mounted = false;
 
       await this.$nextTick();
-
+      
+      // listen event change-charts
       this.$options.service.on('change-charts', this.setCharts);
-
+      
+      //listen event show hide chart
       this.$options.service.on('show-hide-chart', this.showHideChart);
 
+      // at mount time get Charts
       const {charts, order} = await this.$options.service.getCharts({
-        layerIds: this.$options.ids,
-        relationData: this.relationData
+        layerIds: this.$options.ids, // provide by query result service otherwise is undefined
+        relationData: this.relationData // provide by query result service otherwise is undefined
       });
-
+      // set charts
       await this.setCharts({charts, order});
 
       this.relationData && GUI.on('pop-content', this.resize);

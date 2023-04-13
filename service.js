@@ -138,11 +138,12 @@ function Service(){
          relation.getFather() === layerId && relations.push({
            id: relation.getId(), // relation id
            relationLayer: relation.getChild(), // relation layer child
-           use: false // use to get data of related plot
+           use: plot.show // use to get data of related plot
          });
          this._relationIdName[relation.getId()] = relation.getName();
        });
        plot.withrelations = relations; // add Array relations
+
      }
      // listen layer change filtertokenchange
      layer.on('filtertokenchange', this.changeChartsEventHandler)
@@ -585,8 +586,13 @@ function Service(){
     });
   };
 
-  /*
-  * Method to get data chart from server
+
+  /**
+   * Method to get data charts from server
+   * @param layerIds // provide by query by result service otherwise is undefined
+   * @param plotIds // provide by query by result service otherwise is undefined
+   * @param relationData // provide by query by result service otherwise is undefined
+   * @returns {Promise<unknown>}
    */
   this.getCharts = async function({layerIds, plotIds, relationData}={}){
     // check if it has relation data
@@ -605,18 +611,44 @@ function Service(){
           }
           else return false;
         });
-      } else plots = this.config.plots.filter(plot => plot.show);
+      } else {
+        // get only plots that have attribute show to true
+        // and not in relation with other plot show
+        plots = this.config.plots.filter(plot => {
+          return plot.show &&
+            "undefined" === typeof this.config.plots.find((_plot) => {
+              return (
+                // is not the same plot id
+                (plot.id !== _plot.id) &&
+                // is show
+                (true === _plot.show) &&
+                // plat has relations
+                (null !== _plot.withrelations) &&
+                // find a plot that has withrelations array and with relationLayer the same
+                // layer id belog to plot qgis_layer_id
+                ("undefined" !== typeof _plot.withrelations.find(({relationLayer}) => {
+                    return relationLayer === plot.qgs_layer_id;
+                  })
+                )
+              )
+            });
+        });
+      }
 
+      // create charts Object
       const chartsObject = this.createChartsObject({
         order: layerIds && plots.map(plot => plot.id)
       });
       // set main map visible filter tool
       // check if is supported
       if (Promise.allSettled) {
+        // create promises array
         const promises = [];
+        // TODO
         const chartsplots = [];
         // set that register already relation loaded to avoid to replace the same plot multi time
         const relationIdAlreadyLoaded = new Set();
+        //loop through array plots
         plots.forEach(plot => {
           let promise;
           // in case of no request (relation) and not called from query
@@ -637,18 +669,22 @@ function Service(){
             let withrelations;
 
             if (plot.withrelations) {
+
               const inuserelation = plot.withrelations.filter(plotrelation => {
-                if (plotrelation.use && !relationIdAlreadyLoaded.has(plotrelation.id)) {
+                if (true === plotrelation.use && false === relationIdAlreadyLoaded.has(plotrelation.id)) {
                   relationIdAlreadyLoaded.add(plotrelation.id);
                   return true;
                 }
               });
               withrelations = inuserelation.length ? inuserelation.map(plotrelation => plotrelation.id).join(','): undefined;
             }
-            let relationsonetomany = [undefined];
-            let in_bbox;
-            if (addInBBoxParam && this.customParams.bbox) in_bbox = this.customParams.bbox;
 
+            //set
+            let relationsonetomany = [undefined];
+
+            const in_bbox = (addInBBoxParam && this.customParams.bbox) ? this.customParams.bbox : undefined;
+
+            //case called by Query result service
             if (this.relationData) {
               const chartsRelations = this.relationData.relations
                 .filter(relation => plot.qgs_layer_id === relation.referencingLayer)
@@ -707,8 +743,9 @@ function Service(){
                         return plot.withrelations && "undefined" !== typeof plot.withrelations.find(plotrelation => plotrelation.id === relationId)
                       });
                       const fatherPlotFilters = fatherPlot && fatherPlot.filters;
-                      plots.find((plot, index) => {
-                        if (plot.id === id){
+                      this.config.plots.filter(plot => plot.show)
+                        .find((plot, index) => {
+                          if (plot.id === id){
                           this.setActiveFilters(plot);
                           const chart = {};
                           if (chartsObject.charts[plot.id]) chartsObject.charts[plot.id].push(chart);
@@ -786,33 +823,33 @@ function Service(){
 
   /**
    * Called when queryResultService emit event show-chart
+   * or open/close sidebar item
    * @param bool <Boolean>
-   * @param ids <Array>
-   * @param container
-   * @param relationData
+   * @param ids <Array> passed by query result services
+   * @param container DOM element - passed by query result service
+   * @param relationData Passed by query result service
    * @returns {Promise<unknown>}
    */
   this.showChart = function(bool, ids, container, relationData){
-    return new Promise(resolve =>{
-      if (bool) {
+    return new Promise(resolve => {
+      // check if set true (show chart)
+      if (true === bool) {
+        // need to be async
         setTimeout(()=>{
+          // create QPlotly Component
           const content =  new QPlotlyComponent({
             service: this,
             ids,
             relationData
           });
+
+          // get Internal (Vue) component of g3w Component
           const component = content.getInternalComponent();
-          if (container) {
-            component.$once('hook:mounted', async function(){
-              container.append(this.$el);
-            });
-            component.$mount();
-            this.chartContainers.find(queryResultsContainer => container.selector === queryResultsContainer.container.selector).component = component;
-          } else {
-            // called from sidebar component
-            this.onceafter('chartsReady', ()=> {
-              resolve()
-            });
+          // called by sidebar item
+          if ("undefined" === typeof container) {
+            // once chartsReady event resolve promise
+            this.onceafter('chartsReady', resolve);
+            //set self variable to refer to service
             const self = this;
             GUI.showContent({
               closable: false,
@@ -822,6 +859,7 @@ function Service(){
                   fontSize: '1.3em'
                 }
               },
+              //set header action tools (ex. map filter)
               headertools: [
                 Vue.extend({
                   ...HeaderContentAction,
@@ -849,13 +887,19 @@ function Service(){
               ],
               content
             });
+          } else {//if not called from Query Result Service
+            component.$once('hook:mounted', async function(){
+              container.append(this.$el);
+            });
+            component.$mount();
+            this.chartContainers.find(queryResultsContainer => container.selector === queryResultsContainer.container.selector).component = component;
           }
         })
       } else {
-        if (container) {
-          this.clearChartContainers(container);
-        } else {
+        if ("undefined" === typeof container) {
           GUI.closeContent();
+        } else {
+          this.clearChartContainers(container);
         }
         resolve();
       }

@@ -265,53 +265,65 @@ function Service(){
     return plotIds;
   };
 
-  /*
-   use: <Boolen>
-   * */
+  /**
+   *
+   * @param plot <ObjectPlot>
+   * @param use <Boolean>
+   * @returns <Array>
+   */
   this.getPlotIdsToLoad = function({plot, use}) {
     let reload = [];
     //// no relations belong to this plot
     if (null === plot.withrelations) {
+      // loop through all plots
       this.config.plots.forEach(_plot => {
-        if (_plot.id !== plot.id && true === _plot.show) {
-          const relations = _plot.withrelations;
-          relations && relations.find((plotrelation, index) => {
-            if (plotrelation.relationLayer === plot.qgs_layer_id){
-              relations[index].use = use;
-              reload.push({
-                id: _plot.id,
-                relation: false
-              });
-              return true
-            }
-          })
+        if (true === _plot.show && _plot.id !== plot.id) {
+          // check if plot is show and if it has relations
+          if (_plot.withrelations) {
+            // use find to stop loop if we find plot
+            _plot.withrelations.find((plotrelation, index) => {
+              //check if current plot data is coming from father relation chart
+              if (plotrelation.relationLayer === plot.qgs_layer_id) {
+                //set use to relationPlot base on current use
+                _plot.withrelations[index].use = use;
+                if (true === use && true === plot.loaded) {
+                  reload.push({
+                    plotId: _plot.id,
+                    relation: true
+                  })
+                }
+              }
+            })
+          }
         }
-      });
-      use && reload.length && reload.push({
-        id: plot.id,
-        relation: true
       });
     } else { // if plot has relation (layer belong to plot has relation)
       // Loop through relation plots
       plot.withrelations.forEach((relationPlot) => {
+        // loop throght lots
         this.config.plots.forEach((plot) => {
           // check if plot is visible and if it has relation with this plot (layer)
-          if (plot.show && plot.qgs_layer_id === relationPlot.relationLayer){
+          if (true === plot.show && plot.qgs_layer_id === relationPlot.relationLayer) {
+            // set if relation need to be use
             relationPlot.use = use;
-            // add to plot to reload
-            reload.push({
-              id: plot.id,
-              relation: use
-            });
+            // in case of not use this plot
+            if (false === use) {
+              reload.push({
+                plotId: plot.id,
+                relation: use
+              })
+            }
           }
         });
-
-        use && reload.length && reload.push({
-          id: plot.id,
-          relation: false
-        })
-
       });
+
+      if (true === use && true === plot.loaded) {
+        // add to plot to reload
+        reload.push({
+          id: plot.id,
+          relation: use
+        });
+      }
     }
     //return Array
     return reload;
@@ -344,7 +356,7 @@ function Service(){
 
     const chartstoreload = this.getPlotIdsToLoad({
       plot,
-      use: plot.show // set true because plot
+      use: true // set true because plot is show
     });
 
     // if there are chart to reload
@@ -386,6 +398,7 @@ function Service(){
    * @returns {Promise<void>}
    * */
   this.hidePlot = async function(plot){
+    let chartsOrderObject;
     // check if geolayer tool (map) is show (geolayer)
     if (plot.tools.geolayer.show) {
       if (plot.tools.geolayer.active) {
@@ -407,27 +420,30 @@ function Service(){
     }
     this.setContentChartTools();
     // check if we had to reload based on relation
-    const chartstoreload = this.getPlotIdsToLoad({
+    const chartstoreload= this.getPlotIdsToLoad({
       plot,
-      use: plot.show
+      use: false
     });
 
+    // Check if we need to add some params to get data chart request (ex. filtertoken, bbox, etc ..)
     this.setActiveFilters(plot);
+    if (chartstoreload.length > 0) {
+      chartsOrderObject = await this.getCharts({plotIds: chartstoreload})
 
-    const {charts, order} = chartstoreload.length > 0 &&
-      await this.getCharts({plotIds: chartstoreload}) ||
-      this.createChartsObject();
-
-    if (0 === chartstoreload.length) {
+    } else {
+      chartsOrderObject = this.createChartsObject();
       await this.updateCharts();
     }
 
+
+    // this is useful to Qplotly component to
+    // update charts
     this.emit('show-hide-chart', {
       plotId: plot.id,
       action: 'hide',
       filter: plot.filters,
-      charts,
-      order
+      charts: chartsOrderObject.charts,
+      order: chartsOrderObject.order
     });
   };
 

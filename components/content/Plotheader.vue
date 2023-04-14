@@ -16,7 +16,7 @@
         <span
           v-if="tools.selection.active"
           style="margin: auto" class="action-button skin-tooltip-bottom"
-          @click="toggleFilter" :class="{'toggled': tools.filter.active}"
+          @click.stop="toggleFilter" :class="{'toggled': tools.filter.active}"
           data-placement="bottom"
           data-toggle="tooltip"
           v-t-tooltip.create="'plugins.qplotly.tooltip.filter_chart'">
@@ -33,7 +33,7 @@
           style="margin: auto"
           class="action-button skin-tooltip-bottom"
           :class="{'toggled': tools.geolayer.active }"
-          @click="toggleBBoxTool"
+          @click.stop="toggleBBoxTool"
           data-placement="bottom"
           data-toggle="tooltip"
           v-t-tooltip.create="'plugins.qplotly.tooltip.show_feature_on_map'">

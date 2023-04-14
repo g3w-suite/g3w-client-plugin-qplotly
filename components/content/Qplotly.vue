@@ -107,10 +107,13 @@
        */
       async handleBBoxTools({index, active}={}){
         const plotIds = [];
-        if (!active) plotIds.push({
-          id:this.order[index],
-          active
-        });
+        if (true === active) {
+          plotIds.push({
+            id: this.order[index],
+            active
+          });
+        }
+
         this.state.tools.map.toggled = Object.values(this.order).reduce((accumulator, plotId) => {
           return accumulator && this.charts[plotId].reduce((accumulator, {chart}) => {
             const tools = chart.tools;

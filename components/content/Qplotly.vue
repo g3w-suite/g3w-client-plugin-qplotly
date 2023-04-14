@@ -107,13 +107,13 @@
        */
       async handleBBoxTools({index, active}={}){
         const plotIds = [];
-        if (true === active) {
+        if (false === active) {
+
           plotIds.push({
-            id: this.order[index],
+            id:this.order[index],
             active
           });
         }
-
         this.state.tools.map.toggled = Object.values(this.order).reduce((accumulator, plotId) => {
           return accumulator && this.charts[plotId].reduce((accumulator, {chart}) => {
             const tools = chart.tools;
@@ -126,7 +126,7 @@
           }, true);
         },true);
         const {charts, order} = await this.$options.service.showMapFeaturesSubPlotsCharts(plotIds);
-        
+
         this.setCharts({
           charts,
           order

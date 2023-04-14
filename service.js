@@ -61,17 +61,26 @@ function Service(){
     //event handler of change chart
     this.changeChartsEventHandler = debounce(async ({layerId}) =>{
       // change if one of these condition is true
-      const change = this.showCharts && !this.relationData && !!this.config.plots.find(plot=> this.customParams.bbox || plot.qgs_layer_id === layerId && plot.show);
+      const change = (
+        (true === this.showCharts) &&
+        ("undefined" === typeof this.relationData) &&
+        ("undefined" !== this.config.plots
+          .find(plot=> this.customParams.bbox || (plot.qgs_layer_id === layerId && true === plot.show)))
+      );
       // in case of a filter is change on showed chart it redraw the chart
-      if (change) {
+      if (true === change) {
+
         const plotreload = [];
         const subplots = this.keyMapMoveendEvent.plotIds.length > 0;
 
-        subplots && this.keyMapMoveendEvent.plotIds.forEach(plotId => {
-          const plot = this.config.plots.find(plot => plot.id === plotId.id);
-          plot.loaded = false;
-          plotreload.push(plot);
-        });
+        if (true === subplots) {
+          this.keyMapMoveendEvent.plotIds.forEach(plotId => {
+            const plot = this.config.plots.find(plot => plot.id === plotId.id);
+            plot.loaded = false;
+            plotreload.push(plot);
+          });
+        }
+
         this.reloaddata = true;
 
         this.setBBoxParameter(subplots);
@@ -87,6 +96,7 @@ function Service(){
           });
 
         } catch(e){}
+
         this.reloaddata = false;
 
       } else if (layerId) {
@@ -96,6 +106,7 @@ function Service(){
         plot.loaded = false;
       }
     }, 1500);
+
     //loop over plots
     this.config.plots.forEach((plot, index)=> {
       // in case of title is an object get text attribute otherwise get title
@@ -489,7 +500,7 @@ function Service(){
    * @param force
    */
   this.setBBoxParameter = function(force=false){
-    this.customParams.bbox = force || this.state.tools.map.toggled ? this.mapService.getMapBBOX().toString() : undefined;
+    this.customParams.bbox = (force || true === this.state.tools.map.toggled) ? this.mapService.getMapBBOX().toString() : undefined;
   };
 
   /**
@@ -519,7 +530,7 @@ function Service(){
   };
 
   /**
-   * TODO
+   * Handle moveend map event
    * @param listen
    * @param plotIds
    */
@@ -527,8 +538,10 @@ function Service(){
     if (listen) {
       // which plotIds need to be trigger the moveed map event
       this.keyMapMoveendEvent.plotIds = plotIds;
-      // get map movend event just one time
-      this.keyMapMoveendEvent.key =  this.keyMapMoveendEvent.key || this.mapService.getMap().on('moveend', this.changeChartsEventHandler);
+      // get map moveend event just one time
+      if (null === this.keyMapMoveendEvent.key) {
+        this.keyMapMoveendEvent.key = this.mapService.getMap().on('moveend', this.changeChartsEventHandler);
+      }
     } else {
       // remove handler of moveend map
       ol.Observable.unByKey(this.keyMapMoveendEvent.key);

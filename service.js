@@ -102,12 +102,7 @@ function Service(){
 
             plotIds = plotreload.map((plot) => {
               //need to clear data of plot
-              const reloadPlotsIds = this.clearDataPlot(plot);
-              if (reloadPlotsIds.length > 0) {
-                this.getChartsAndEmit({
-                  plotIds:reloadPlotsIds
-                })
-              }
+              this.clearDataPlot(plot);
               return plot.id;
             })
 

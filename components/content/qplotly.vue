@@ -5,7 +5,7 @@
     class="skin-color"
     :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
 
-      <bar-loader :loading="state.loading" v-if="wrapped"/>
+      <bar-loader :loading="state.loading" v-if="insideCointainer"/>
 
       <div
         v-if="show"
@@ -81,11 +81,10 @@
     },
     data(){
       this.id = getUniqueDomId();
-      this.wrapped = "undefined" !== typeof this.$options.ids;
+      this.insideCointainer = "undefined" !== typeof this.$options.ids;
       this.relationData = this.$options.relationData;
-      const state = this.$options.service.state;
       return {
-        state,
+        state: this.$options.service.state,
         show: true,
         overflowY: 'none',
         height: 100,
@@ -150,7 +149,9 @@
         this.show = this.order.length > 0;
         switch(action){
           case 'hide':
-            this.charts[plotId].forEach(({chart}) => {chart.filters = filter;});
+            //need to remove charts [plotId]
+            delete this.charts[plotId];
+            //this.charts[plotId].forEach(({chart}) => chart.filters = filter});
             if (this.show) {
               await this.setCharts({charts, order});
             } else {
@@ -175,7 +176,8 @@
        * @returns {Promise<void>}
        */
       async resizePlots(){
-        if (false === this.wrapped) {
+
+        if (false === this.insideCointainer) {
           this.$options.service.setLoadingCharts(true);
         }
 
@@ -194,7 +196,7 @@
         const chartsPlotIds = await Promise.allSettled(promises);
         chartsPlotIds.forEach(({value}) => this.charts[value].forEach(({chart, state}) => state.loading = false));
 
-        if (false === this.wrapped) {
+        if (false === this.insideCointainer) {
           this.$options.service.setLoadingCharts(false);
         }
       },
@@ -237,17 +239,18 @@
        * @returns {Promise<void>}
        */
       async setCharts({charts={}, order=[]}={}){
-
+        //set loading
         this.$options.service.setLoadingCharts(true);
-
+        //get new charts order
         this.order = order;
-
+        //check if there are plot charts to show
         this.show = this.order.length > 0;
-
+        //loop through charts
+        //TODO check other way
         Object.keys(charts).forEach((plotId) => {
             // initialize chart with plotId
           this.charts[plotId] = [];
-
+          //get chart
           charts[plotId].forEach((chart) => {
             this.charts[plotId].push({
               chart,
@@ -310,9 +313,7 @@
             state.loading = !this.relationData;
             promise = new Promise(resolve =>{
               setTimeout(()=>{
-                Plotly.newPlot(domElement, [data] , layout, config).then(()=>{
-                  resolve(plotId)
-                });
+                Plotly.newPlot(domElement, [data] , layout, config).then(() => resolve(plotId));
               })
             })
           } else {
@@ -335,27 +336,19 @@
        * @returns {Promise<unknown>}
        */
       async calculateHeigths(visibleCharts=0){
-        return new Promise(async (resolve) =>{
-          const addedHeight = ((this.relationData && this.relationData.height) ? (visibleCharts > 1 ? visibleCharts * 50: 0) : (visibleCharts > 2 ? visibleCharts - 2 : 0) * 50 );
-          this.height = 100 + addedHeight;
-          await this.$nextTick();
-          this.overflowY = addedHeight > 0 ? 'auto' : 'none';
-          resolve();
-        })
+
+        const addedHeight = (
+          (this.relationData && this.relationData.height) ?
+            (visibleCharts > 1 ? visibleCharts * 50: 0) :
+            (visibleCharts > 2 ? visibleCharts - 2 : 0) * 50 );
+
+        this.height = 100 + addedHeight;
+
+        await this.$nextTick();
+
+        this.overflowY = addedHeight > 0 ? 'auto' : 'none';
       },
 
-      /**
-       *
-       * @returns {Promise<void>}
-       */
-      async showMapFeaturesCharts(){
-        const {charts, order} = await this.$options.service.showMapFeaturesAllCharts(true);
-        
-        this.setCharts({
-          charts,
-          order
-        });
-      }
     },
 
     beforeCreate() {
@@ -367,7 +360,7 @@
     },
 
     async mounted() {
-
+      //set mounted false
       this.mounted = false;
 
       await this.$nextTick();
@@ -386,9 +379,12 @@
 
       // set charts
       await this.setCharts({charts, order});
-
-      this.relationData && GUI.on('pop-content', this.resize);
-
+      //this.relationData is passed by query result service
+      // when show feature charts or relation charts feature
+      if ("undefined" !== typeof this.relationData) {
+        GUI.on('pop-content', this.resize);
+      }
+      //set mounted true
       this.mounted = true;
     },
 
@@ -404,7 +400,7 @@
 
       this.charts = null;
 
-      this.order = [];
+      this.order = null ;
     }
   }
 </script>

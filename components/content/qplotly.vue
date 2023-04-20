@@ -1,5 +1,6 @@
 <template>
   <div
+    v-disabled="state.loading"
     :id="id"
     class="skin-color"
     :style="{overflowY: overflowY, height: relationData && relationData.height ? `${relationData.height}px`: '100%'}">
@@ -16,7 +17,6 @@
           v-for="(plotId, index) in order"
           :key="plotId"
           style="position:relative;"
-          v-disabled="state.loading"
           :style="{height: relationData && relationData.height ? `${relationData.height}px` : `${100/order.length}%`}">
 
             <template v-for="({chart, state}) in charts[plotId]">
@@ -98,8 +98,12 @@
        *
        * @param layerId
        */
-      handleToggleFilter({layerId}={}){
-        this.$options.service.toggleLayerFilter(layerId);
+      async handleToggleFilter({layerId}={}){
+        //add to start loading (disable)
+        //TODO find better solution
+        this.$options.service.setLoadingCharts(true);
+        //call toggleLayer
+        await this.$options.service.toggleLayerFilter(layerId);
       },
       /**
        * Handle click on map icon tool (show bbox data)
@@ -108,11 +112,14 @@
        * @returns {Promise<void>}
        */
       async handleBBoxTools({index, active}={}){
+        //add to start loading (disable)
+        //TODO find better solution
+        this.$options.service.setLoadingCharts(true);
         //loop through order plotId
         const id = this.order[index]; //plot id
-
+        //call plugin service updateMapBBOXData method
         const {charts, order} = await this.$options.service.updateMapBBOXData({id, active});
-
+        // global map tool toggled status base on plot belong to geolayer show on charts
         this.state.tools.map.toggled = Object.values(this.order).reduce((accumulator, id) => {
           //return true or false based on map active geo tools
           return accumulator && this.charts[id].reduce((accumulator, {chart}) => {
@@ -127,9 +134,16 @@
           order
         });
       },
-      /*
-      action: 'show', 'hide'
-      * */
+
+        /**
+         * Method called from showPlot or hidePlot plugin service (check/uncheck) chart checkbox
+         * @param plotId
+         * @param charts
+         * @param order
+         * @param action
+         * @param filter
+         * @returns {Promise<void>}
+         */
       async showHideChart({plotId, charts={}, order=[], action, filter}={}){
         this.order = order;
         await this.$nextTick();

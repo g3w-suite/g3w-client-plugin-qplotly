@@ -49,7 +49,7 @@ function Service(){
     plotIds: []
   };
   this.mainbboxtool = false;
-  let layersId = new Set();
+  const layersId = new Set();
   // init method service
   this.init = function(config={}){
     // get plugin config
@@ -102,7 +102,12 @@ function Service(){
 
             plotIds = plotreload.map((plot) => {
               //need to clear data of plot
-              this.clearDataPlot(plot, false);
+              const reloadPlotsIds = this.clearDataPlot(plot);
+              if (reloadPlotsIds.length > 0) {
+                this.getChartsAndEmit({
+                  plotIds:reloadPlotsIds
+                })
+              }
               return plot.id;
             })
 
@@ -180,67 +185,84 @@ function Service(){
     //
     BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;
 
-    /**
-     * @since 3.5.2
-     * @returns {number}
-     */
-    this.getNumberOfShowPlots = function(){
-      return this.getShowPlots(true).length;
-    }
+    this.queryResultService.addLayersPlotIds([...layersId]);
+    // listen show-chart event from query result service
+    this.queryResultService.on('show-chart', this.showChartsOnContainer);
+    // listen hide-chart event from query result service
+    this.queryResultService.on('hide-chart', this.clearChartContainers);
+    // get close component event key when component (right element where result are show is closed)
+    this.closeComponentKeyEevent = this.queryResultService.onafter('closeComponent', this.clearChartContainers);
 
-    /**
-     * Method called from  queryResultService on 'show-chart' event
-     * @param ids
-     * @param container
-     * @param relationData
-     */
-    this.showChartsOnContainer = (ids, container, relationData) => {
-      const findContainer = this.chartContainers.find(queryresultcontainer => container.selector === queryresultcontainer.container.selector);
-      if ("undefined" === typeof findContainer) {
-        this.chartContainers.push({
-          container,
-          component: null
-        });
-      }
-      this.showChart(("undefined" === typeof findContainer), ids, container, relationData);
-    };
+    this.setContentChartTools();
+
     // Emit plugin service is ready
     this.emit('ready');
 
-    /**
-     * Method to clear chart containers
-     * @param container
-     */
-     this.clearChartContainers = (container) => {
 
-       this.chartContainers = this.chartContainers.filter(queryResultsContainer =>  {
-         if (!container || (container.selector === queryResultsContainer.container.selector)) {
-           $(queryResultsContainer.component.$el).remove();
-           queryResultsContainer.component.$destroy();
-           return false
-         } else return true;
-       });
-     };
+  };
 
-     this.queryResultService.addLayersPlotIds([...layersId]);
-     // listen show-chart event from query result service
-     this.queryResultService.on('show-chart', this.showChartsOnContainer);
-      // listen hide-chart event from query result service
-     this.queryResultService.on('hide-chart', this.clearChartContainers);
-     // get close component event key when component (right element where result are show is closed)
-     this.closeComponentKeyEevent = this.queryResultService.onafter('closeComponent', this.clearChartContainers);
+  /**
+   * Method called from  queryResultService on 'show-chart' event
+   * @param ids
+   * @param container
+   * @param relationData
+   */
+  this.showChartsOnContainer = (ids, container, relationData) => {
+    const findContainer = this.chartContainers.find(queryresultcontainer => container.selector === queryresultcontainer.container.selector);
+    if ("undefined" === typeof findContainer) {
+      this.chartContainers.push({
+        container,
+        component: null
+      });
+    }
 
-     this.setContentChartTools();
-    };
+    //clear already plot loaded by query service
+    this.config.plots.forEach((plot) => {
+      if (plot.loaded){
+        this.clearDataPlot(plot);
+      }
+    })
+
+    this.showChart(("undefined" === typeof findContainer), ids, container, relationData);
+  };
+
+  /**
+   * Method to clear chart containers
+   * @param container
+   */
+  this.clearChartContainers = (container) => {
+
+    this.chartContainers = this.chartContainers.filter(queryResultsContainer =>  {
+      if (!container || (container.selector === queryResultsContainer.container.selector)) {
+        $(queryResultsContainer.component.$el).remove();
+        queryResultsContainer.component.$destroy();
+        return false
+      } else return true;
+    });
+    //clear already plot loaded by query service
+    this.config.plots.forEach((plot) => {
+      if (plot.loaded){
+        this.clearDataPlot(plot);
+      }
+    })
+  };
+
+  /**
+   * @since 3.5.2
+   * @returns {number}
+   */
+  this.getNumberOfShowPlots = function(){
+    return this.getShowPlots(true).length;
+  }
 
   /**
    * Method to toggle filter token on project layer
    * @param layerId
    */
-  this.toggleLayerFilter = function(layerId){
+  this.toggleLayerFilter = async function(layerId){
     const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
-    if (layer) {
-      layer.toggleFilterToken();
+    if ("undefined" !== typeof layer) {
+      await layer.toggleFilterToken();
     }
   };
 
@@ -313,7 +335,12 @@ function Service(){
           if (_plot.id !== plot.id) {
             if ("undefined" !== typeof plot.withrelations.relations.find(({relationLayer}) => _plot.qgs_layer_id === relationLayer)) {
               //if found clear plot data to force to reload by parent plot
-              this.clearDataPlot(_plot);
+              const plotIds = this.clearDataPlot(_plot);
+              if (plotIds.length > 0) {
+                this.getChartsAndEmit({
+                  plotIds
+                })
+              }
             }
           }
         })
@@ -348,7 +375,12 @@ function Service(){
       }
     }
     // clear data of plot
-    this.clearDataPlot(plot);
+    const plotIds = this.clearDataPlot(plot);
+    if (plotIds.length > 0) {
+      this.getChartsAndEmit({
+        plotIds
+      })
+    }
     //
     this.setContentChartTools();
     // Remove filters eventually
@@ -396,7 +428,7 @@ function Service(){
       listen: false
     });
     this.getShowPlots(true).forEach(plot => {
-      this.clearDataPlot(plot, false);
+      this.clearDataPlot(plot);
       if (true === plot.tools.geolayer.show) {
         plot.tools.geolayer.active = false;
       }
@@ -429,7 +461,7 @@ function Service(){
     this.getShowPlots(true).forEach((_plot) => {
       if (_plot.id !== id && _plot.qgs_layer_id === plot.qgs_layer_id) {
         _plot.tools.geolayer.active = active;
-        this.clearDataPlot(_plot, false);
+        this.clearDataPlot(_plot);
         plotIds.push({
           id: _plot.id,
           active,
@@ -448,7 +480,7 @@ function Service(){
       plotIds,
     });
 
-    this.clearDataPlot(plot, false);
+    this.clearDataPlot(plot);
 
     return await this.getCharts({
       plotIds: plotIds.map(({id}) => id)
@@ -481,6 +513,7 @@ function Service(){
    * Method reload chart data for every charts
    */
   this.updateCharts = async function(change=false){
+    this.setLoadingCharts(true);
     let charts;
     this.mainbboxtool = true;
     this.state.tools.map.toggled = change ? !this.state.tools.map.toggled: this.state.tools.map.toggled;
@@ -506,7 +539,7 @@ function Service(){
 
     try {
       const plotIds = activeGeolayerPlots.map((plot) => {
-        this.clearDataPlot(plot, false);
+        this.clearDataPlot(plot);
         return plot.id;
       });
       charts = await this.getCharts({
@@ -517,33 +550,28 @@ function Service(){
     return charts;
   };
 
+
   /**
    * @param plot object
    */
-  this.clearDataPlot = function(plot, reloadChidPlots=true){
+  this.clearDataPlot = function(plot){
+    //plotId eventually to reload
+    const plotIds = [];
     //set loaded data to false
     plot.loaded = false;
     //set dat to null
     plot.data = null;
-    //plotId eventually to reload
-    const plotIds = [];
     //in case of plot father and has relation data
     if (null !== plot.withrelations) {
       //and data related to
       if (null !== plot.withrelations.data) {
-        Object.values(plot.withrelations.data)
-            .forEach((dataRelationPlot) => {
-              dataRelationPlot.forEach(({id}) => {
-                this.clearDataPlot(this.getPlotById(id));
-                plotIds.push(id);
-              })
-            })
-        plot.withrelations.data = null;
-        if (true === reloadChidPlots && plotIds.length > 0) {
-          this.getChartsAndEmit({
-            plotIds
+        Object.values(plot.withrelations.data).forEach((dataRelationPlot) => {
+          dataRelationPlot.forEach(({id}) => {
+            this.clearDataPlot(this.getPlotById(id));
+            plotIds.push(id);
           })
-        }
+        })
+        plot.withrelations.data = null;
       }
     } else {
       //check if we need to remove relation data coming from parent plot
@@ -617,12 +645,11 @@ function Service(){
    * @returns {Promise<unknown>}
    */
   this.getCharts = async function({layerIds, plotIds, relationData}={}){
-    console.log({layerIds, plotIds, relationData})
+    //console.log({layerIds, plotIds, relationData})
     // check if it has relation data
     this.relationData = relationData;
     //return a Promise
     return new Promise((resolve) => {
-      this.setLoadingCharts(true);
       let plots; // array of plots that need to be get data to show charts
       if ("undefined" !== typeof layerIds) {
         //get plots request from Query Result Service
@@ -646,8 +673,8 @@ function Service(){
                     (null === plot.withrelations.data) ||
                     ("undefined" === typeof plot.withrelations.data[relationId]) ||
                     ("undefined" === typeof plot.withrelations.data[relationId].find(({id}) => id === plotId))
-                  ))
-                ))
+                  )
+                )))
               )
             )
           })
@@ -785,7 +812,6 @@ function Service(){
                   return true;
                 }
               }).map(({id}) => id).join(',') || undefined;
-              console.log(withrelations)
             }
             //set initial to undefined
             let relationsonetomany = [undefined];
@@ -920,7 +946,6 @@ function Service(){
             resolve(chartsObject);
           })
       }
-      this.setLoadingCharts(false);
     });
   };
 
@@ -1045,7 +1070,9 @@ function Service(){
     // listen layer change filter to reload the charts
     layersId.forEach(layerId => {
       const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
-      layer && layer.off('filtertokenchange', this.changeChartWhenFilterChange)
+      if ("undefined" !== typeof layer) {
+        layer.off('filtertokenchange', this.changeChartWhenFilterChange)
+      }
     });
 
     this.mapService = null;
@@ -1053,7 +1080,7 @@ function Service(){
     this.queryResultService.removeListener('show-charts', this.showChartsOnContainer);
     this.queryResultService.un('closeComponent', this.closeComponentKeyEevent);
     this.closeComponentKeyEevent = null;
-    layersId = null;
+    layersId.clear();
     this.mainbboxtool = null;
     this.queryResultService = null;
     this.emit('clear');

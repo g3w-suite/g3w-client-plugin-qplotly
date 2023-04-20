@@ -41,7 +41,6 @@ Plugin.prototype.setupGUI = function(){
           when: 'before',
           cb: async bool => {
             await this.service.showChart(bool);
-            !bool && this.config.plots.forEach(plot => plot.loaded = false);
           }
         }
       },

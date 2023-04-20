@@ -1,4 +1,4 @@
-import QPlotly from './Qplotly.vue';
+import QPlotly from './qplotly.vue';
 
 const {base, inherit} = g3wsdk.core.utils;
 const Component = g3wsdk.gui.vue.Component;

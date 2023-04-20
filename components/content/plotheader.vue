@@ -116,7 +116,7 @@
           active:this.tools.geolayer.active
         });
       }
-    }
+    },
   }
 </script>
 

@@ -17,20 +17,23 @@
           :key="plotId"
           style="position:relative;"
           v-disabled="state.loading"
-          :style="{height: relationData && relationData.height ? `${relationData.height}px` : `${100/nCharts}%`}">
+          :style="{height: relationData && relationData.height ? `${relationData.height}px` : `${100/order.length}%`}">
 
-          <template
-            v-for="({chart, state}, index) in charts[plotId]">
-            <plotheader
-              @toggle-bbox-tool="handleBBoxTools"  @toggle-filter-tool="handleToggleFilter"
-              :index="index" :layerId="chart.layerId" :tools="!relationData ? chart.tools : undefined"
-              :title="chart.title" :filters="chart.filters"/>
+            <template v-for="({chart, state}) in charts[plotId]">
 
-            <div
-              class="plot_div_content"
-              :ref="`${plotId}_${index}`"
-              style="width:95%; margin: auto; position:relative">
-            </div>
+              <plotheader
+                @toggle-bbox-tool="handleBBoxTools"
+                @toggle-filter-tool="handleToggleFilter"
+                :index="index" :layerId="chart.layerId"
+                :tools="!relationData ? chart.tools : undefined"
+                :title="chart.title"
+                :filters="chart.filters"/>
+
+              <div
+                class="plot_div_content"
+                :ref="`${plotId}`"
+                style="width:95%; margin: auto; position:relative">
+              </div>
 
           </template>
 
@@ -56,7 +59,7 @@
 </template>
 
 <script>
-  import PlotHeader from './Plotheader.vue';
+  import PlotHeader from './plotheader.vue';
 
   const {GUI} = g3wsdk.gui;
   const {getUniqueDomId} = g3wsdk.core.utils;
@@ -86,8 +89,7 @@
         show: true,
         overflowY: 'none',
         height: 100,
-        order: [],
-        nCharts: 0
+        order: [], //array of ordered plot id
       }
     },
 
@@ -100,33 +102,26 @@
         this.$options.service.toggleLayerFilter(layerId);
       },
       /**
-       *
+       * Handle click on map icon tool (show bbox data)
        * @param index
        * @param active
        * @returns {Promise<void>}
        */
       async handleBBoxTools({index, active}={}){
-        const plotIds = [];
-        if (false === active) {
+        //loop through order plotId
+        const id = this.order[index]; //plot id
 
-          plotIds.push({
-            id:this.order[index],
-            active
-          });
-        }
-        this.state.tools.map.toggled = Object.values(this.order).reduce((accumulator, plotId) => {
-          return accumulator && this.charts[plotId].reduce((accumulator, {chart}) => {
-            const tools = chart.tools;
-            const active = tools.geolayer.show && tools.geolayer.active;
-            active && plotIds.push({
-              id: plotId,
-              active
-            });
-            return accumulator && (tools.geolayer.show ? active : true)
+        const {charts, order} = await this.$options.service.updateMapBBOXData({id, active});
+
+        this.state.tools.map.toggled = Object.values(this.order).reduce((accumulator, id) => {
+          //return true or false based on map active geo tools
+          return accumulator && this.charts[id].reduce((accumulator, {chart}) => {
+              const active = chart.tools.geolayer.show && chart.tools.geolayer.active;
+              return accumulator && (chart.tools.geolayer.show ? active : true)
+            }, true);
+
           }, true);
-        },true);
-        const {charts, order} = await this.$options.service.showMapFeaturesSubPlotsCharts(plotIds);
-
+        //call set Charts based on change map tool toggled
         this.setCharts({
           charts,
           order
@@ -137,33 +132,26 @@
       * */
       async showHideChart({plotId, charts={}, order=[], action, filter}={}){
         this.order = order;
-        this.$nextTick();
-        this.nCharts = this.$options.service.getNumberOfShowPlots();
-        const visibleCharts = this.nCharts;
         await this.$nextTick();
-        this.show = visibleCharts > 0;
+        this.show = this.order.length > 0;
         switch(action){
           case 'hide':
-            this.charts[plotId].forEach(({chart}) => chart.filters = filter);
-            if (Object.keys(charts).length)
-              await this.setCharts({
-                charts,
-                order
-              });
-            else {
-              await this.calculateHeigths(visibleCharts);
+            this.charts[plotId].forEach(({chart}) => {chart.filters = filter;});
+            if (this.show) {
+              await this.setCharts({charts, order});
+            } else {
+              await this.calculateHeigths(this.order.length);
               await this.resizePlots();
             }
             break;
           case 'show':
             this.show = true;
-            await this.calculateHeigths(visibleCharts);
+            await this.calculateHeigths(this.order.length);
             await this.drawAllCharts();
-            this.$options.service.chartsReady();
             break;
         }
         // if show true need to call resize to update charts already show
-        if (this.show)  {
+        if (this.show) {
           this.resize();
         }
       },
@@ -174,12 +162,13 @@
        */
       async resizePlots(){
         if (false === this.wrapped) {
-          await this.$options.service.updateCharts();
+          this.$options.service.setLoadingCharts(true);
         }
+
         const promises = [];
         this.order.forEach(plotId =>{
           this.charts[plotId].forEach((chart, index) =>{
-            const domElement = this.$refs[`${plotId}_${index}`][0];
+            const domElement = this.$refs[`${plotId}`][0];
             this.setChartPlotHeigth(domElement);
             promises.push(new Promise(resolve =>{
               Plotly.Plots.resize(domElement).then(()=>{
@@ -190,7 +179,10 @@
         });
         const chartsPlotIds = await Promise.allSettled(promises);
         chartsPlotIds.forEach(({value}) => this.charts[value].forEach(({chart, state}) => state.loading = false));
-        !this.wrapped && this.$options.service.chartsReady();
+
+        if (false === this.wrapped) {
+          this.$options.service.setLoadingCharts(false);
+        }
       },
 
       /**
@@ -198,6 +190,7 @@
        * @returns {Promise<void>}
        */
       async drawAllCharts(){
+        this.$options.service.setLoadingCharts(true);
         await this.$nextTick();
         const promises = [];
         // loop through loop plot ids order
@@ -218,23 +211,30 @@
 
           });
         }
+
+        this.$options.service.setLoadingCharts(false);
+
       },
 
       /**
        *
        * @param charts <Object>
-       * @param order
+       * @param order <Array> of plot id ordered
        * @returns {Promise<void>}
        */
       async setCharts({charts={}, order=[]}={}){
-        
-        // get number of show plots
-        this.nCharts = this.$options.service.getNumberOfShowPlots();
+
+        this.$options.service.setLoadingCharts(true);
+
+        this.order = order;
+
+        this.show = this.order.length > 0;
 
         Object.keys(charts).forEach((plotId) => {
+            // initialize chart with plotId
           this.charts[plotId] = [];
-          charts[plotId].forEach((chart) => {
 
+          charts[plotId].forEach((chart) => {
             this.charts[plotId].push({
               chart,
               // set reactive state by Vue.observable
@@ -245,24 +245,19 @@
 
           })
         });
-        
-
-        this.show = this.nCharts > 0;
-
-        this.order = order;
 
         this.$nextTick();
 
         if (this.show) {
           
-          await this.calculateHeigths(this.nCharts);
+          await this.calculateHeigths(this.order.length);
           
           await this.drawAllCharts();
         }
         setTimeout(() => {
-          
-          this.$options.service.chartsReady();
-          
+
+          this.$options.service.setLoadingCharts(false);
+
         })
       },
 
@@ -294,7 +289,7 @@
         let promise;
         this.charts[plotId].forEach(({chart, state}, index) =>{
           const config = this.$options.service.getChartConfig();
-          const domElement = this.$refs[`${plotId}_${index}`][0];
+          const domElement = this.$refs[`${plotId}`][0];
           const {data, layout} = chart;
           this.setChartPlotHeigth(domElement);
           if (data && Array.isArray(data[TYPE_VALUES[data.type] || 'x']) && data[TYPE_VALUES[data.type] || 'x'].length) {
@@ -327,7 +322,7 @@
        */
       async calculateHeigths(visibleCharts=0){
         return new Promise(async (resolve) =>{
-          const addedHeight = (this.relationData && this.relationData.height ? (visibleCharts > 1 ? visibleCharts * 50: 0) : (visibleCharts > 2 ? visibleCharts - 2 : 0) * 50 );
+          const addedHeight = ((this.relationData && this.relationData.height) ? (visibleCharts > 1 ? visibleCharts * 50: 0) : (visibleCharts > 2 ? visibleCharts - 2 : 0) * 50 );
           this.height = 100 + addedHeight;
           await this.$nextTick();
           this.overflowY = addedHeight > 0 ? 'auto' : 'none';
@@ -349,14 +344,15 @@
       }
     },
 
-    beforeCreate(){
+    beforeCreate() {
       this.delayType = 'debounce';
     },
-    created(){
-      this.nCharts = this.$options.service.getNumberOfShowPlots();
+
+    created() {
       this.charts = {};
     },
-    async mounted(){
+
+    async mounted() {
 
       this.mounted = false;
 
@@ -373,6 +369,7 @@
         layerIds: this.$options.ids, // provide by query result service otherwise is undefined
         relationData: this.relationData // provide by query result service otherwise is undefined
       });
+
       // set charts
       await this.setCharts({charts, order});
 
@@ -382,6 +379,7 @@
     },
 
     beforeDestroy() {
+      //un listen all events
       this.$options.service.off('change-charts', this.setCharts);
 
       this.$options.service.off('show-hide-chart', this.showHideChart);
@@ -392,7 +390,7 @@
 
       this.charts = null;
 
-      this.nCharts = 0;
+      this.order = [];
     }
   }
 </script>

@@ -16,7 +16,7 @@
           :for="plot.id"
           style="display:flex; justify-content: space-between; align-items: center">
 
-            <span style="white-space: pre-wrap">{{ plot.label }}</span>
+            <span style="white-space: pre-wrap">{{plot.id}} - {{ plot.label }} </span>
             <span>{{plot.plot.type}}</span>
 
         </label>

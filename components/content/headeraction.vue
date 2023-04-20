@@ -12,7 +12,7 @@
         data-toggle="tooltip"
         style="font-weight: bold; margin: 3px"
         :class="[g3wtemplate.getFontClass('map'), state.tools.map.toggled ? 'toggled' : '']"
-        @click="showMapFeaturesCharts"
+        @click.stop="updateCharts"
         v-t-tooltip.create="'plugins.qplotly.tooltip.show_all_features_on_map'" >
       </span>
 

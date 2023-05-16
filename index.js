@@ -6,11 +6,11 @@ const {GUI} = g3wsdk.gui;
 const {Plugin:BasePlugin} = g3wsdk.core.plugin;
 
 const Plugin = function() {
-  const {name, i18n} = pluginConfig;
+  const {name} = pluginConfig;
   base(this, {
     name,
     service: Service,
-    i18n
+    i18n: true
   });
   this.service.once('ready', () => {
     if (this.registerPlugin(this.config.gid)) {
@@ -60,5 +60,5 @@ Plugin.prototype.unload = function() {
   this.service.clear();
 }
 
-new Plugin();
+new Plugin;
 

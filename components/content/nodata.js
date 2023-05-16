@@ -1,5 +1,5 @@
 module.exports = {
-  props:{
+  props: {
     title: {
       type: String
     }
@@ -14,15 +14,19 @@ module.exports = {
         justifyContent: 'center'
       }
     }, [
-      h('h4', {
-        style: {
-          fontWeight: 'bold',
-          textAlign: 'center'
+      h('h4',
+        {
+          style: {
+            fontWeight: 'bold',
+            textAlign: 'center'
+          },
+          class:{
+            'skin-color':true
+          }
         },
-        class:{
-          'skin-color':true
-        }
-      },`${this.$props.title}`),
+        `${this.$props.title}`
+      ),
+
       h('div', {
         directives: [{
           name:'t-plugin',

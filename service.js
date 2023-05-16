@@ -1,24 +1,33 @@
 import HeaderContentAction from './components/content/headeraction.vue';
-const { base, inherit, XHR , debounce, toRawType} =  g3wsdk.core.utils;
+
+const {base,inherit,XHR,debounce,toRawType} =  g3wsdk.core.utils;
 const {GUI} = g3wsdk.gui;
 const {ApplicationState} = g3wsdk.core;
 const {PluginService} = g3wsdk.core.plugin;
 const {CatalogLayersStoresRegistry} = g3wsdk.core.catalog;
+
 const QPlotlyComponent = require('./components/content/qplotly');
+
 let BASEQPLOTLYAPIURL = '/qplotly/api/trace';
 
 function Service(){
-  this.setters = {
-    chartsReady(){} // hook called when chart is show
-  };
+
   base(this);
-  this.mapService = GUI.getComponent('map').getService();
+  // get mapService
+  this.mapService = GUI.getService('map');
+  //get Query Service
+  this.queryResultService = GUI.getService('queryresults');
+  // get current map CRS
   this.mapCrs = this.mapService.getCrs();
+  // initialize load plots as empty Object
   this.loadedplots = {};
+  //Initial state is false
   this.loading = false;
+  //Initial state is false
   this.showCharts = false;
+  // set state of plugin reactive using Vue.observable
   this.state = Vue.observable({
-    loading: false,
+    loading: false, // loading purpose
     geolayer: false,
     positions: [],
     tools: {
@@ -28,353 +37,493 @@ function Service(){
       }
     }
   });
-  this.reloaddata = false;
+  // relation data
   this.relationData = null;
   this._relationIdName = {};
   this.customParams = {
     bbox: undefined
   };
+  //store Openlayers key event for map moveend
   this.keyMapMoveendEvent = {
     key: null,
     plotIds: []
   };
   this.mainbboxtool = false;
-  let layersId = new Set();
+  const layersId = new Set();
+  // init method service
   this.init = function(config={}){
+    // get plugin config
     this.config = config;
+    // charts container coming from query results
     this.chartContainers = [];
+    //event handler of change chart
+    //@param layerId Layer id passed by filter token add or remove to a specific layer
     this.changeChartsEventHandler = debounce(async ({layerId}) =>{
       // change if one of these condition is true
-      const change = this.showCharts && !this.relationData && !!this.config.plots.find(plot=> this.customParams.bbox || plot.qgs_layer_id === layerId && plot.show);
+      const change = (
+        (true === this.showCharts) &&
+        ("undefined" === typeof this.relationData) &&
+        ("undefined" !== this.config.plots
+          .find(plot => this.customParams.bbox || (plot.qgs_layer_id === layerId && true === plot.show)))
+      );
       // in case of a filter is change on showed chart it redraw the chart
-      if (change) {
+      if (true === change) {
+        //array of plot to reload
         const plotreload = [];
-        const subplots = this.keyMapMoveendEvent.plotIds.length > 0;
-        subplots && this.keyMapMoveendEvent.plotIds.forEach(plotId => {
-          const plot = this.config.plots.find(plot => plot.id === plotId.id);
-          plot.loaded = false;
-          plotreload.push(plot);
-        });
-        this.reloaddata = true;
-        this.setBBoxParameter(subplots);
-        try {
-          const plotIds = subplots && this.getPlotsIdsToLoad({
-            plots: plotreload,
-            use: true
-          }) || undefined;
-          await this.getChartsAndEmit({
-            plotIds
+        //check if there is a plot that need to update data when move map
+        const isTherePlotListensMoveEnd = this.keyMapMoveendEvent.plotIds.length > 0;
+        //it there is a plot
+        if (true === isTherePlotListensMoveEnd) {
+
+          this.keyMapMoveendEvent.plotIds.forEach(plotId => {
+            const plot = this.config.plots.find(plot => plot.id === plotId.id);
+            plot.filters = [];
+            plotreload.push(plot); //add plot to plot reaload
           });
+        }
+
+        this.setBBoxParameter(isTherePlotListensMoveEnd);
+
+        // check if filtertoken is added or removed from layer
+        if (layerId) {
+
+          this.getShowPlots(true).forEach(plot => {
+            if (plot.qgs_layer_id === layerId) {
+              plotreload.push(plot);
+            }
+          });
+
+        }
+        try {
+
+          let plotIds;
+
+          if (plotreload.length > 0) {
+
+            plotIds = plotreload.map((plot) => {
+              //need to clear data of plot
+              this.clearDataPlot(plot);
+              return plot.id;
+            })
+
+          }
+
+          await this.getChartsAndEmit({plotIds});
+
         } catch(e){}
-        this.reloaddata = false;
-      } else if (layerId) {
-        const plot = this.config.plots.find(plot => plot.qgs_layer_id === layerId);
-        plot.loaded = false;
+
+
       }
     }, 1500);
-    this.config.plots.forEach((plot, index)=>{
+
+    //loop over plots
+    this.config.plots.forEach((plot, index)=> {
+      // in case of title is an object get text attribute otherwise get title
+      //It is necessary depend of which plotly library version is installed on server
      const title = toRawType(plot.plot.layout.title) === 'Object' ? plot.plot.layout.title.text : plot.plot.layout.title;
+     //add plot id
      this.state.positions.push(plot.id);
+     //set relation to null
      plot.withrelations = null;
-     plot.request = true;
-     plot.loaded = plot.show;
+     /*
+     * @since 3.5.1
+     * data attribute store data
+     * */
+     plot.data = null;
+     //set already loaded false
+     plot.loaded = false;
      plot.plot.layout._title = title ;
-     plot.label = title ||  `Plot id [${plot.id}]`;
-     // set automargin
+     plot.label = title || `Plot id [${plot.id}]`;
+     // set auto margin
      plot.plot.layout.xaxis.automargin = true;
      plot.plot.layout.yaxis.automargin = true;
+     //end auto margin
      plot.filters = [];
+     // get layer id
      const layerId = plot.qgs_layer_id;
-     //end automargin
+     //add to Array layerId
      layersId.add(layerId);
      // listen layer change filter to reload the charts
      const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
+     // check if layer has geometry
      const geolayer = layer.isGeoLayer();
      plot.crs = geolayer ? layer.getCrs() : undefined;
      plot.tools = {
-       filter: layer.getFilter(),
-       selection: layer.getSelection(),
-       geolayer: {
-         show: geolayer,
-         active: false
-       }
+       filter: layer.getFilter(), // get reactive layer filter attribute : {filter: {active: <Boolean>}}
+       selection: layer.getSelection(), // get reactive layer selection attribute : {selection: {active: <Boolean>}}
+       geolayer: Vue.observable({
+         show: geolayer, // if is geolayer show map tool
+         active: false, // start to false
+       })
      };
-     // set relations
-     if (layer.isFather()){
+     // check if a layer has child (relation)
+     //so add withrerlations attribute to plot
+     if (layer.isFather()) {
        const relations = [];
        layer.getRelations().getArray().forEach(relation =>{
          relation.getFather() === layerId && relations.push({
            id: relation.getId(), // relation id
            relationLayer: relation.getChild(), // relation layer child
-           use: false // use to get data of related plot
          });
          this._relationIdName[relation.getId()] = relation.getName();
        });
-       plot.withrelations = relations
+       plot.withrelations = {
+         relations,
+         data: null
+       }; // add Array relations
+
      }
-     
+     // listen layer change filtertokenchange
      layer.on('filtertokenchange', this.changeChartsEventHandler)
-   });
-   BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;
-   this.queryResultService = GUI.getComponent('queryresults').getService();
-   this.showChartsOnContainer = (ids, container, relationData) => {
-     const find = this.chartContainers.find(queryresultcontainer => container.selector === queryresultcontainer.container.selector);
-     !find && this.chartContainers.push({
-       container,
-       component: null
-     });
-     this.showChart(!find, ids, container, relationData);
-   };
-   this.emit('ready');
 
-   this.clearChartContainers = container => {
-     this.chartContainers = this.chartContainers.filter(queryResultsContainer =>  {
-       if (!container || (container.selector === queryResultsContainer.container.selector)) {
-           $(queryResultsContainer.component.$el).remove();
-           queryResultsContainer.component.$destroy();
-          return false
-         } else return true;
-     });
-   };
-
-   this.queryResultService.addLayersPlotIds([...layersId]);
-   this.queryResultService.on('show-chart', this.showChartsOnContainer);
-   this.queryResultService.on('hide-chart', this.clearChartContainers);
-   this.closeComponentKeyEevent = this.queryResultService.onafter('closeComponent', this.clearChartContainers);
-   this.setContentChartTools();
-  };
-
-  this.toggleLayerFilter = function(layerId){
-    const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
-    layer && layer.toggleFilterToken();
-    this.updateCharts();
-  };
-
-  this.setActiveFilters = function(plot){
-    plot.filters = [];
-    plot.tools.filter.active && plot.filters.push('filtertoken');
-    if (plot.tools.geolayer.active) plot.filters.length ? plot.filters.splice(0, 1, 'in_bbox_filtertoken')  : plot.filters.push('in_bbox');
-  };
-
-  this.getChartsAndEmit = async function({plotIds} ={}){
-    const {charts, order} = await this.getCharts({
-      plotIds
     });
-    this.emit('change-charts', {
-      charts,
-      order
-    });
-  };
-  //check if had to reload data of parent relation
+    //
+    BASEQPLOTLYAPIURL = `${BASEQPLOTLYAPIURL}/${this.getGid()}`;
 
-  this.getPlotsIdsToLoad = function({plots=[], use=false}={}){
-    let plotIds = [];
-    plots.forEach(plot =>{
-      const plotIdsToLoad = this.getPlotIdsToLoad({
-        plot,
-        use
-      });
-      if (plotIdsToLoad.length) {
-        plotIdsToLoad.forEach(plotIdToLoad=>{
-          const find = plotIds.find(ploId => plotIdsToLoad.id === plotIdToLoad.id);
-          !find && plotIds.push(plotIdToLoad);
-        })
-      } else plotIds.push({
-        id: plot.id,
-        relation: false
-      })
-    });
-    return plotIds;
+    this.queryResultService.addLayersPlotIds([...layersId]);
+    // listen show-chart event from query result service
+    this.queryResultService.on('show-chart', this.showChartsOnContainer);
+    // listen hide-chart event from query result service
+    this.queryResultService.on('hide-chart', this.clearChartContainers);
+    // get close component event key when component (right element where result are show is closed)
+    this.closeComponentKeyEevent = this.queryResultService.onafter('closeComponent', this.clearChartContainers);
+
+    this.setContentChartTools();
+
+    // Emit plugin service is ready
+    this.emit('ready');
+
+
   };
 
-  /*
-  use: true, false
-  * */
-  this.getPlotIdsToLoad = function({plot, use}) {
-    let reload = [];
-    // if has a relations
-    if (plot.withrelations) {
-      // check if chart in relation is show
-      plot.withrelations.forEach(plotrelation => {
-        this.config.plots.forEach(plot => {
-          if (plot.show && plot.qgs_layer_id === plotrelation.relationLayer){
-            plotrelation.use = use;
-            reload.push({
-              id:plot.id,
-              relation: use
-            });
-          }
-        });
-        use && reload.length && reload.push({
-          id: plot.id,
-          relation: false
-        })
-      });
-    } else {
-      this.config.plots.forEach(_plot => {
-        if (_plot.id !== plot.id && _plot.show){
-          const relations = _plot.withrelations;
-           relations && relations.find((plotrelation, index) => {
-             if (plotrelation.relationLayer === plot.qgs_layer_id){
-               relations[index].use = use;
-               reload.push({
-                 id: _plot.id,
-                 relation: false
-               });
-               return true
-            }
-           });}
-      });
-      use && reload.length && reload.push({
-        id:plot.id,
-        relation: true
+  /**
+   * Method called from  queryResultService on 'show-chart' event
+   * @param ids
+   * @param container
+   * @param relationData
+   */
+  this.showChartsOnContainer = (ids, container, relationData) => {
+    const findContainer = this.chartContainers.find(queryresultcontainer => container.selector === queryresultcontainer.container.selector);
+    if ("undefined" === typeof findContainer) {
+      this.chartContainers.push({
+        container,
+        component: null
       });
     }
-    return reload;
+
+    //clear already plot loaded by query service
+    this.config.plots.forEach((plot) => {
+      if (plot.loaded){
+        this.clearDataPlot(plot);
+      }
+    })
+
+    this.showChart(("undefined" === typeof findContainer), ids, container, relationData);
   };
 
+  /**
+   * Method to clear chart containers
+   * @param container
+   */
+  this.clearChartContainers = (container) => {
+
+    this.chartContainers = this.chartContainers.filter(queryResultsContainer =>  {
+      if (!container || (container.selector === queryResultsContainer.container.selector)) {
+        $(queryResultsContainer.component.$el).remove();
+        queryResultsContainer.component.$destroy();
+        return false
+      } else return true;
+    });
+    //clear already plot loaded by query service
+    this.config.plots.forEach((plot) => {
+      if (plot.loaded){
+        this.clearDataPlot(plot);
+      }
+    })
+  };
+
+  /**
+   * @since 3.5.2
+   * @returns {number}
+   */
+  this.getNumberOfShowPlots = function(){
+    return this.getShowPlots(true).length;
+  }
+
+  /**
+   * Method to toggle filter token on project layer
+   * @param layerId
+   */
+  this.toggleLayerFilter = async function(layerId){
+    const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
+    if ("undefined" !== typeof layer) {
+      await layer.toggleFilterToken();
+    }
+  };
+
+  /**
+   * Method to set array of active filter on a plot
+   * map bbox or filtertoken for example
+   * @param plot
+   */
+  this.setActiveFilters = function(plot){
+    let change = false;
+    const _filters = [...plot.filters];
+    plot.filters = [];
+    //check if active filter filtertoken is active
+    if (true === plot.tools.filter.active) {
+      plot.filters.push('filtertoken');
+    }
+    //check if map bbox tools on plo is active
+    if (true === plot.tools.geolayer.active) {
+      plot.filters.length > 0 ?
+        plot.filters.splice(0, 1, 'in_bbox_filtertoken') :
+        plot.filters.push('in_bbox');
+    }
+  };
+
+  /**
+   * Get new data charts and emit change-charts listen by qplotly.vue component to redraw charts
+   * @param plotIds
+   * @returns {Promise<void>}
+   */
+  this.getChartsAndEmit = async function({plotIds} ={}){
+    //get charts
+    const {charts, order} = await this.getCharts({plotIds});
+    // charts are change
+    this.emit('change-charts', {charts, order})
+  };
+
+  /**
+   * Method to show plot chart
+   * @param plot
+   * @returns {Promise<void>}
+   */
   this.showPlot = async function(plot){
-    // only if geolayer
-    if (plot.tools.geolayer.show){
-      plot.tools.geolayer.active =  this.state.tools.map.toggled;
-      if (this.keyMapMoveendEvent.key){
+    // only if geolayer tools is show
+    if (plot.tools.geolayer.show) {
+      // get active boolean from map toggled
+      plot.tools.geolayer.active = this.state.tools.map.toggled;
+      // in case of already register move map event
+      if (this.keyMapMoveendEvent.key) {
+        // add current plot id
         this.keyMapMoveendEvent.plotIds.push({
           id: plot.id,
           active: this.state.tools.map.toggled
         })
       }
     }
+
+    /**
+     *  set main map geolayer tools based on if there are plot belong to a geolayer
+     */
     this.setContentChartTools();
-    const chartstoreload = this.getPlotIdsToLoad({
-      plot,
-      use: true
-    });
-    if (chartstoreload.length) await this.getChartsAndEmit({
-      plotIds: chartstoreload
-    });
-    else {
-      const {charts, order} = this.createChartsObject();
-      if (plot.loaded) {
-        await this.updateCharts();
-        this.emit('show-hide-chart', {
-          plotId:plot.id,
-          action: 'show',
-          charts,
-          order
-        });
-      } else {
-        await this.getChartsAndEmit({
-          plotIds:[{
-            id:plot.id,
-            relation: false
-          }]
-        });
-        plot.loaded = true;
+    // if there are chart to reload
+    // in case of parent plot relations
+    if (null !== plot.withrelations) {
+      //need to check if other plot with the same qgs_layer_id has already
+      //loaded child plot
+      if ("undefined" === typeof this.getShowPlots(true).find((_plot) => _plot.id !== plot.id && _plot.qgs_layer_id === plot.qgs_layer_id)) {
+        //not find a show plot with same qgs_layer_id
+        this.getShowPlots().forEach((_plot) => {
+          //find a child plot show
+          if (_plot.id !== plot.id) {
+            if ("undefined" !== typeof plot.withrelations.relations.find(({relationLayer}) => _plot.qgs_layer_id === relationLayer)) {
+              //if found clear plot data to force to reload by parent plot
+              const plotIds = this.clearDataPlot(_plot);
+              if (plotIds.length > 0) {
+                this.getChartsAndEmit({
+                  plotIds
+                })
+              }
+            }
+          }
+        })
       }
     }
+
+    await this.getChartsAndEmit({plotIds: [plot.id]});
+
   };
 
+  /**
+   * Method to hide plot chart
+   * @param plot
+   * @returns {Promise<void>}
+   * */
   this.hidePlot = async function(plot){
-    if (plot.tools.geolayer.show){
-      if (plot.tools.geolayer.active) plot.loaded = false;
+    // check if geolayer tool (map) is show (geolayer)
+    if (plot.tools.geolayer.show) {
+      // deactive geolayer tools
       plot.tools.geolayer.active = false;
-      if (this.keyMapMoveendEvent.key) this.keyMapMoveendEvent.plotIds = this.keyMapMoveendEvent.plotIds.filter(plotId => plot.id !== plotId.id);
+      //check if there is a listen key moveend
+      if (this.keyMapMoveendEvent.key) {
+        // remove map Move end from plotids keys
+        this.keyMapMoveendEvent.plotIds = this.keyMapMoveendEvent.plotIds.filter(plotId => plot.id !== plotId.id);
+      }
+      // if no plots have active geo tools
       if (this.keyMapMoveendEvent.plotIds.length === 0) {
-        this.customParams.bbox = void 0;
+        // set request params to undefined
+        this.customParams.bbox = undefined;
+        //un toggle main chart map tool
         this.state.tools.map.toggled = false;
       }
     }
+    // clear data of plot
+    const plotIds = this.clearDataPlot(plot);
+    if (plotIds.length > 0) {
+      this.getChartsAndEmit({
+        plotIds
+      })
+    }
+    //
     this.setContentChartTools();
-    // check if we had to reload based on relation
-    const chartstoreload = this.getPlotIdsToLoad({
-      plot,
-      use: false
-    });
-
+    // Remove filters eventually
     this.setActiveFilters(plot);
-    const {charts, order} = chartstoreload.length && await this.getCharts({plotIds: chartstoreload}) || this.createChartsObject();
-    !chartstoreload.length && await this.updateCharts();
+    //
+    const {charts, order} = this.createChartsObject();
+    // this is useful to Qplotly component to
+    // update charts
     this.emit('show-hide-chart', {
-      plotId:plot.id,
+      plotId: plot.id,
       action: 'hide',
       filter: plot.filters,
       charts,
-      order
+      order,
     });
   };
 
+  /**
+   * TODO
+   * @param order <Array/undefined> of plot ids
+   * @returns {{charts: {}, order: (*|*[])}}
+   */
   this.createChartsObject = function({order}={}){
     return {
-      order: order || this.config.plots.filter(plot=> plot.show).map(plot => plot.id),
-      charts: {}
+      order: order || this.getShowPlots(true).map(plot => plot.id),
+      charts: {},
     }
   };
 
+  /**
+   * Method to get charts plots of plugin configuration
+   * @returns {[]|*}
+   */
   this.getPlots = function(){
     return this.config.plots;
   };
 
+  /**
+   * TODO
+   */
   this.clearLoadedPlots = function() {
-    this.loadedplots = {};
     this.state.tools.map.toggled = false;
     this.customParams.bbox = undefined;
     this.handleKeyMapMoveendEvent({
       listen: false
     });
-    this.config.plots.forEach(plot => {
-      plot.tools.geolayer.active = false;
+    this.getShowPlots(true).forEach(plot => {
+      this.clearDataPlot(plot);
+      if (true === plot.tools.geolayer.show) {
+        plot.tools.geolayer.active = false;
+      }
       plot.filters = [];
     });
     this.showCharts = false;
   };
 
+  /**
+   * TODO
+   * @param force
+   */
   this.setBBoxParameter = function(force=false){
-    this.customParams.bbox = force || this.state.tools.map.toggled ? this.mapService.getMapBBOX().toString() : undefined;
+    this.customParams.bbox = (force || true === this.state.tools.map.toggled) ? this.mapService.getMapBBOX().toString() : undefined;
   };
 
-  this.showMapFeaturesSubPlotsCharts = async function(plotIds=[]){
-    this.mainbboxtool = false;
+  /**
+   * TODO
+   * @param plotIds
+   * @returns {Promise<unknown>}
+   */
+  this.updateMapBBOXData = async function({id, active}){
+    const plotIds = [{
+      id,
+      active
+    }]
+
+    const plot = this.getPlotById(id);
+
+    this.getShowPlots(true).forEach((_plot) => {
+      if (_plot.id !== id && _plot.qgs_layer_id === plot.qgs_layer_id) {
+        _plot.tools.geolayer.active = active;
+        this.clearDataPlot(_plot);
+        plotIds.push({
+          id: _plot.id,
+          active,
+        })
+      }
+    })
+
+
+    //set bbox parameter to force
     this.setBBoxParameter(true);
+
+    this.mainbboxtool = false;
+
     this.handleKeyMapMoveendEvent({
       listen:true,
-      plotIds
-    });
-    const _plotIds = plotIds.map(plotId => plotId.id);
-    const plots = this.config.plots.filter(plot => {
-      const find = _plotIds.find(plotId => plotId === plot.id);
-      return find !== undefined;
+      plotIds,
     });
 
+    this.clearDataPlot(plot);
+
     return await this.getCharts({
-      plotIds: this.getPlotsIdsToLoad({
-        plots,
-        use: true
-      })
+      plotIds: plotIds.map(({id}) => id)
     });
   };
 
+  /**
+   * Handle moveend map event
+   * @param listen
+   * @param plotIds
+   */
   this.handleKeyMapMoveendEvent = function({listen=false, plotIds=[]}={}){
     if (listen) {
+      // which plotIds need to be trigger the moveed map event
       this.keyMapMoveendEvent.plotIds = plotIds;
-      this.keyMapMoveendEvent.key =  this.keyMapMoveendEvent.key || this.mapService.getMap().on('moveend', this.changeChartsEventHandler);
+      // get map moveend event just one time
+      if (null === this.keyMapMoveendEvent.key) {
+        this.keyMapMoveendEvent.key = this.mapService.getMap().on('moveend', this.changeChartsEventHandler);
+      }
     } else {
+      // remove handler of moveend map
       ol.Observable.unByKey(this.keyMapMoveendEvent.key);
       this.keyMapMoveendEvent.key = null;
+      // reset to empty
       this.keyMapMoveendEvent.plotIds = [];
     }
   };
 
-  // methods reload chart data for every charts
-  this.showMapFeaturesAllCharts = async function(change=false){
+  /**
+   * Method reload chart data for every charts
+   */
+  this.updateCharts = async function(change=false){
+    this.setLoadingCharts(true);
     let charts;
     this.mainbboxtool = true;
-    this.reloaddata = true;
     this.state.tools.map.toggled = change ? !this.state.tools.map.toggled: this.state.tools.map.toggled;
+    //set bbox parameter
     this.setBBoxParameter();
-    const activeGeolayerPlots = this.config.plots.filter(plot => {
-      plot.tools.geolayer.active = plot.tools.geolayer.show && this.state.tools.map.toggled;
-      return plot.show && (this.state.tools.map.toggled && plot.tools.geolayer.active || true)
+    //get active plot related to geolayer
+    const activeGeolayerPlots = this.getShowPlots(true).filter(plot => {
+      if (true === plot.tools.geolayer.show) {
+        plot.tools.geolayer.active = plot.tools.geolayer.show && this.state.tools.map.toggled;
+        return (this.state.tools.map.toggled && plot.tools.geolayer.active) || true
+      } else {
+        return false;
+      }
     });
+
     this.handleKeyMapMoveendEvent({
       listen: this.state.tools.map.toggled,
       plotIds: activeGeolayerPlots.map(plot => ({
@@ -382,163 +531,400 @@ function Service(){
         active: plot.tools.geolayer.active
       }))
     });
+
     try {
-      // set use of relation based on map toggled or filtertoken active
-      const use = this.state.tools.map.toggled || typeof ApplicationState.tokens.filtertoken !== 'undefined';
-      const plotIds = this.getPlotsIdsToLoad({
-        plots: activeGeolayerPlots,
-        use
+      const plotIds = activeGeolayerPlots.map((plot) => {
+        this.clearDataPlot(plot);
+        return plot.id;
       });
       charts = await this.getCharts({
         plotIds
       });
     } catch(e){}
-    this.reloaddata = false;
+
     return charts;
   };
 
-  this.setContentChartTools = function(){
-    this.state.geolayer = !!this.config.plots.find(plot => plot.show && plot.tools.geolayer.show);
-  };
 
-  this.updateCharts = async function(layerIds){
-    this.state.loading = true;
-    if (!layerIds) {
-      GUI.disableSideBar(true);
-      await GUI.setLoadingContent(true);
-    }
-    this.onceafter('chartsReady', async ()=>{
-      if (!layerIds) {
-        GUI.disableSideBar(false);
-        await GUI.setLoadingContent(false);
+  /**
+   * @param plot object
+   */
+  this.clearDataPlot = function(plot){
+    //plotId eventually to reload
+    const plotIds = [];
+    //set loaded data to false
+    plot.loaded = false;
+    //set dat to null
+    plot.data = null;
+    //in case of plot father and has relation data
+    if (null !== plot.withrelations) {
+      //and data related to
+      if (null !== plot.withrelations.data) {
+        Object.values(plot.withrelations.data).forEach((dataRelationPlot) => {
+          dataRelationPlot.forEach(({id}) => {
+            this.clearDataPlot(this.getPlotById(id));
+            plotIds.push(id);
+          })
+        })
+        plot.withrelations.data = null;
       }
-      this.state.loading = false;
-    });
+    } else {
+      //check if we need to remove relation data coming from parent plot
+      this.getShowPlots(true).forEach((_plot) => {
+        //plot has different id from current hide plot and it has dara relations
+        if (_plot.id !== plot.id && null !== _plot.withrelations && null !==_plot.withrelations.data) {
+          Object.entries(_plot.withrelations.data).forEach(([relationId, dataRelationPlot]) => {
+            dataRelationPlot.forEach(({id}, index) => {
+              if (id === plot.id) {
+                dataRelationPlot.splice(index, 1);
+              }
+            })
+            if (dataRelationPlot.length === 0) {
+              delete _plot.withrelations.data[relationId];
+              if (Object.keys(_plot.withrelations.data).length === 0) {
+                _plot.withrelations.data = null;
+              }
+            }
+          })
+        }
+      })
+    }
+    return plotIds;
+  }
+
+  /**
+   * method to set geo-layer tools true or false if some plot chart has geolayer show
+   */
+  this.setContentChartTools = function(){
+    // if no show plot have geolayer tool to show (geolayer) hide charts geolayer tool
+    this.state.geolayer = "undefined" !== typeof this.getShowPlots(true).find(plot => plot.tools.geolayer.show);
   };
 
+  /**
+   * Method to show loading charts data (loading === true)
+   * is on going
+   * @param loading <Boolean>
+   * @returns {undefined}
+   */
+  this.setLoadingCharts = function(loading){
+    this.state.loading = loading;
+
+    if ("undefined" === typeof this.relationData) {
+      GUI.disableSideBar(loading);
+      GUI.setLoadingContent(loading);
+    }
+
+  };
+
+  /**
+   * Return filter plots base on show parameter
+   * @param show <Boolean>
+   * @returns {Array} filtered plots
+   */
+  this.getShowPlots = function(show=true){
+    return this.config.plots.filter(plot => show === plot.show);
+  };
+
+  /**
+   * @since 3.5.2
+   */
+  this.getPlotById = function(id){
+    return this.config.plots.find((plot) => plot.id === id);
+  };
+
+  /**
+   * Method to get data charts from server
+   * @param layerIds // provide by query by result service otherwise is undefined
+   * @param plotIds // <Array> of plots id to show
+   * @param relationData // provide by query by result service otherwise is undefined
+   * @returns {Promise<unknown>}
+   */
   this.getCharts = async function({layerIds, plotIds, relationData}={}){
-    this.relationData = this.reloaddata ? this.relationData : relationData;
-    await this.updateCharts(layerIds);
-    return new Promise(resolve => {
-      let plots;
-      if (layerIds) {
+    //console.log({layerIds, plotIds, relationData})
+    // check if it has relation data
+    this.relationData = relationData;
+    //return a Promise
+    return new Promise((resolve) => {
+      let plots; // array of plots that need to be get data to show charts
+      if ("undefined" !== typeof layerIds) {
+        //get plots request from Query Result Service
         plots = this.config.plots.filter(plot => layerIds.indexOf(plot.qgs_layer_id) !== -1);
-      } else if (plotIds) {
-        plots = this.config.plots.filter(plot => {
-          const findplot = plotIds.find(plotId => plotId.id === plot.id);
-          if (findplot) {
-            plot.request = !findplot.relation;
-            return true;
+      } else if ("undefined" !== typeof plotIds) {
+        //filter only plots that have id belong to plotIds array
+        //set by check uncheck plot on sidebar interface
+        plots = [];
+        plotIds.forEach((plotId) => {
+          //check if is child of already show plots
+          let addPlot = this.getShowPlots(true).find(plot => {
+            return (
+              (
+                (plot.id !== plotId) &&
+                (null !== plot.withrelations) &&
+                // find a plot that has withrelations array and with relationLayer the same
+                // layer id belong to plot qgis_layer_id
+                ("undefined" !== typeof plot.withrelations.relations.find(({id:relationId, relationLayer}) => (
+                  (relationLayer === this.getPlotById(plotId).qgs_layer_id) &&
+                  (
+                    (null === plot.withrelations.data) ||
+                    ("undefined" === typeof plot.withrelations.data[relationId]) ||
+                    ("undefined" === typeof plot.withrelations.data[relationId].find(({id}) => id === plotId))
+                  )
+                )))
+              )
+            )
+          })
+          //if not find add plot by plotId
+          if ("undefined" === typeof addPlot) {
+            addPlot = this.getPlotById(plotId)
           }
-          else return false;
-        });
-      } else plots = this.config.plots.filter(plot => plot.show);
+          //check if already (in case of parent plots) added to plots
+          if ("undefined" === typeof plots.find((plot) => plot === addPlot)){
+            plots.push(addPlot);
+          }
+        })
+      } else {
+        // get only plots that have attribute show to true
+        // and not in relation with other plot show
+        plots = this.getShowPlots(true).filter(plot => {
+          return (
+            // and if not belong to show plot father relation
+            ("undefined" === typeof this.getShowPlots(true).find((_plot) =>
+            (
+              // is not the same plot id
+              (plot.id !== _plot.id) &&
+              // plat has relations
+              (null !== _plot.withrelations) &&
+              // find a plot that has withrelations array and with relationLayer the same
+              // layer id belog to plot qgis_layer_id
+              ("undefined" !== typeof _plot.withrelations.relations.find(({id, relationLayer}) => ((relationLayer === plot.qgs_layer_id))))
+            )))
+          )
+        })
+      }
+      // create charts Object
       const chartsObject = this.createChartsObject({
         order: layerIds && plots.map(plot => plot.id)
       });
-      // set main map visibile filter tool
+      // set main map visible filter tool
       // check if is supported
       if (Promise.allSettled) {
+        // create promises array
         const promises = [];
+        // TODO
         const chartsplots = [];
         // set that register already relation loaded to avoid to replace the same plot multi time
         const relationIdAlreadyLoaded = new Set();
+        //loop through array plots
         plots.forEach(plot => {
           let promise;
+          let plotRelationData;//variable contain already data coming from father plots
           // in case of no request (relation) and not called from query
-          if (!relationData && !plot.request) {
-            promise = Promise.resolve({
+          if (
+              //if already loaded (show)
+              (true === plot.loaded) &&
+              (
+                (null === plot.withrelations) ||
+                (
+                  (null !== plot.withrelations.data) &&
+                  (
+                    (
+                      this.getShowPlots(true)
+                        .filter((_plot)=> ("undefined" !== typeof plot.withrelations.relations.find(({relationLayer}) => (_plot.qgs_layer_id === relationLayer))))
+                        .reduce((notChildPlotData, _plot) => {
+                          notChildPlotData += (
+                            "undefined" !== typeof Object.values(plot.withrelations.data).find((relationData) => {
+                              return ("undefined" !== typeof relationData.find(({id, data}) => id === _plot.id))
+                            })
+                          ) ? 0: 1;
+                          return notChildPlotData
+                        }, 0) === 0
+                    )
+                  )
+                )
+              )
+          ) {
+            promises.push(Promise.resolve({
               result: true,
-              relation:true
-            });
-          } else {
-            const addInBBoxParam = this.keyMapMoveendEvent.plotIds.length > 0 ? this.keyMapMoveendEvent.plotIds.filter(plotIds => plotIds.active).map(plotId => plotId.id).indexOf(plot.id) !== -1 : true;
-            let withrelations;
-            if (plot.withrelations) {
-              const inuserelation = plot.withrelations.filter(plotrelation => {
-                if (plotrelation.use && !relationIdAlreadyLoaded.has(plotrelation.id)) {
-                  relationIdAlreadyLoaded.add(plotrelation.id);
+              data: plot.data,
+              relations: plot.withrelations && plot.withrelations.data
+            }));
+          } else if (
+            // no relation data passed by query result service
+            ("undefined" === typeof relationData) &&
+            //check if plots are more than one
+            (this.getShowPlots(true).length > 1) &&
+            //find if is a plots that belong to plot father
+            ("undefined" !== typeof this.getShowPlots(true).find((_plot)=> {
+              if (
+                (_plot.id !== plot.id) &&
+                (null !== _plot.withrelations) &&
+                (null !== _plot.withrelations.data) &&
+                ("undefined" !== typeof Object.values(_plot.withrelations.data).find((relationData) => {
+                  return "undefined" !== typeof relationData.find(({id, data}) => {
+                    if (id === plot.id) {
+                      plotRelationData = data;
+                      return true;
+                    }
+                  })
+                }))
+              ) {
+                  promises.push(Promise.resolve({
+                    result: true,
+                    data: [plotRelationData]
+                  }))
+
                   return true;
                 }
-              });
-              withrelations = inuserelation.length ? inuserelation.map(plotrelation=> plotrelation.id).join(','): undefined;
+            }))
+          ) {
+
+          } else {
+            //check if we need to add bbox parameter to request
+            const addInBBoxParam= this.keyMapMoveendEvent.plotIds.length > 0 ?
+
+              this.keyMapMoveendEvent.plotIds
+                .filter(plotIds => plotIds.active)
+                .map(plotId => plotId.id)
+                .indexOf(plot.id) !== -1 :
+              true;
+
+            //withrealtion get parameter.
+            // Initialize as undefined
+            let withrelations;
+            //check if plot has relation child
+            if (plot.withrelations) {
+              withrelations = plot.withrelations.relations.filter(({id:relationId, relationLayer}) => {
+                if (
+                    ("undefined" !== typeof this.getShowPlots(true).find((_plot) => {
+                      return (
+                        (_plot.qgs_layer_id === relationLayer) &&
+                        (false === _plot.loaded)
+                      )
+                    })) && (false === relationIdAlreadyLoaded.has(relationId))
+                ) {
+                  relationIdAlreadyLoaded.add(relationId);
+                  plot.loaded = false;
+                  return true;
+                }
+              }).map(({id}) => id).join(',') || undefined;
             }
+            //set initial to undefined
             let relationsonetomany = [undefined];
-            let in_bbox;
-            if (addInBBoxParam && this.customParams.bbox) in_bbox = this.customParams.bbox;
-            if (this.relationData) {
+
+            //in_bbox parameter in case of tool map toggled
+            const in_bbox = (addInBBoxParam && this.customParams.bbox) ? this.customParams.bbox : undefined;
+
+            //case called by Query result service
+            if ("undefined" !== typeof this.relationData) {
               const chartsRelations = this.relationData.relations
                 .filter(relation => plot.qgs_layer_id === relation.referencingLayer)
                 .map(relation => `${relation.id}|${this.relationData.fid}`);
               relationsonetomany = chartsRelations.length ? chartsRelations : relationsonetomany;
             }
-            relationsonetomany.forEach(relationonetomany =>{
+
+            relationsonetomany.forEach(relationonetomany => {
               chartsplots.push(plot);
-              promise = !this.reloaddata && this.loadedplots[plot.id] ? Promise.resolve(this.loadedplots[plot.id]) : XHR.get({
-                url: `${BASEQPLOTLYAPIURL}/${plot.qgs_layer_id}/${plot.id}`,
-                params: {
-                  withrelations,
-                  filtertoken: ApplicationState.tokens.filtertoken || undefined,
-                  relationonetomany,
-                  in_bbox
-                }
-              });
+              promise = true === plot.loaded ?
+
+                Promise.resolve({
+                  data: plot.data
+                }) :
+                // server request data
+                XHR.get({
+                  url: `${BASEQPLOTLYAPIURL}/${plot.qgs_layer_id}/${plot.id}/`,
+                  params: {
+                    withrelations, // relations parameter
+                    filtertoken: ApplicationState.tokens.filtertoken || undefined, //filtertoken
+                    relationonetomany,
+                    in_bbox //in bbox
+                  }
+                });
+
               promises.push(promise);
+
             })
           }
         });
+        // wait all promises
         Promise.allSettled(promises)
           .then(async promisesData => {
-            promisesData.forEach((promise, index) =>{
+            promisesData.forEach((promise, index) => {
+              // only if request has response
               if (promise.status === 'fulfilled' && promise.value.result) {
                 const {data, relation, relations} = promise.value;
                 if (relation) return; // in case of relation do nothing
                 const plot = chartsplots[index];
+                plot.data = data;
+                plot.loaded = true;
+                plot.plot.layout.title = plot.plot.layout._title;
                 this.setActiveFilters(plot);
                 // in case of multiple chart plot of same plot
                 const chart = {};
-                if (chartsObject.charts[plot.id]) chartsObject.charts[plot.id].push(chart);
-                else chartsObject.charts[plot.id] = [chart];
+                if (chartsObject.charts[plot.id]) {
+                  chartsObject.charts[plot.id].push(chart);
+                } else {
+                  chartsObject.charts[plot.id] = [chart];
+                }
                 chart.filters = plot.filters;
                 chart.layout = plot.plot.layout;
                 chart.tools = plot.tools;
                 chart.layerId = plot.qgs_layer_id;
-                plot.plot.layout.title = plot.plot.layout._title;
                 chart.title = plot.plot.layout.title;
                 chart.data = data[0];
+                //in case of return data has a relations attributes data
                 if (relations) {
-                  Object.keys(relations).forEach(relationId =>{
-                    const relationdata = relations[relationId];
-                    relationdata.forEach(({id, data}) =>{
-                      const fatherPlot = plots.find(plot => plot.withrelations && !!plot.withrelations.find(plotrelation => plotrelation.id === relationId));
-                      const fatherPlotFilters = fatherPlot && fatherPlot.filters;
-                      plots.find((plot, index) => {
-                        if (plot.id === id){
-                          this.setActiveFilters(plot);
-                          const chart = {};
-                          if (chartsObject.charts[plot.id]) chartsObject.charts[plot.id].push(chart);
-                          else chartsObject.charts[plot.id] = [chart];
-                          const layout = plot.plot.layout;
-                          layout.title = `${this._relationIdName[relationId]} ${layout._title}`;
-                          if (fatherPlotFilters.length) plot.filters.push(`relation.${fatherPlotFilters[0]}`);
-                          chart.data = data[0];
-                          chart.filters= plot.filters;
-                          chart.layout = layout;
-                          chart.tools = plot.tools;
-                          chart.layerId = plot.qgs_layer_id;
-                          chart.title = plot.plot.layout.title;
-                          return true;
+                  //add data to relations
+                  if (null === plot.withrelations.data){
+                    plot.withrelations.data = relations;
+                  } else {
+                    Object.keys(relations).forEach((relationId) => {
+                      plot.withrelations.data[relationId] = relations[relationId]
+                    })
+                  }
+                  //loop through relations id plot
+                  Object.keys(relations).forEach(relationId => {
+                    //get relation data
+                    relations[relationId].forEach(({id, data}) => {
+                      //get father filter plots
+                      const fatherPlotFilters = plot.filters;
+                      //filter only show plot
+                      this.config.plots.filter(plot => plot.show)
+                        .find((plot, index) => {
+                          if (plot.id === id) {
+                            this.setActiveFilters(plot);
+                            plot.loaded = true;
+                            plot.data = data;
+                            const chart = {};
+                            if (chartsObject.charts[plot.id]) chartsObject.charts[plot.id].push(chart);
+                            else chartsObject.charts[plot.id] = [chart];
+                            const layout = plot.plot.layout;
+                            layout.title = `${this._relationIdName[relationId]} ${layout._title}`;
+
+                            if (fatherPlotFilters.length) {
+                              plot.filters.push(`relation.${fatherPlotFilters[0]}`);
+                            }
+
+                            chart.data = data[0];
+                            chart.filters= plot.filters;
+                            chart.layout = layout;
+                            chart.tools = plot.tools;
+                            chart.layerId = plot.qgs_layer_id;
+                            chart.title = plot.plot.layout.title;
+                            return true;
                         }
                       });
                     })
                   });
                 }
-              } else {
+              } else { // some error occurs during get data from server
                 const plot = chartsObject[index];
                 this.setActiveFilters(plot);
                 const chart = {};
-                if (chartsObject.charts[plot.id]) chartsObject.charts.push(chart);
-                else chartsObject.charts = [chart];
+                if (chartsObject.charts[plot.id]) {
+                  chartsObject.charts.push(chart);
+                } else {
+                  chartsObject.charts = [chart];
+                }
                 chart.filters = plot.filters;
                 chart.layout = plot.plot.layout;
                 chart.tools = plot.tools;
@@ -547,50 +933,72 @@ function Service(){
                 chart.data = null;
               }
             });
+
             this.showCharts = true;
+
             this.removeInactivePlotIds();
+
             resolve(chartsObject);
           })
       }
     });
   };
 
+  /**
+   *
+   */
   this.removeInactivePlotIds = function(){
-    if (!this.state.tools.map.toggled){
+    if (false === this.state.tools.map.toggled){
       this.keyMapMoveendEvent.plotIds = this.keyMapMoveendEvent.plotIds.filter(plotId => plotId.active);
-      this.keyMapMoveendEvent.plotIds.length === 0 && this.keyMapMoveendEvent.key && this.handleKeyMapMoveendEvent({listen: false});
+      if (this.keyMapMoveendEvent.plotIds.length === 0 && this.keyMapMoveendEvent.key ) {
+        this.handleKeyMapMoveendEvent({listen: false});
+      }
     }
   };
 
+  /**
+   *
+   * @returns {*}
+   */
   this.getChartLayout = function() {
     return this.config.plots[0].layout;
   };
-
+  /**
+   *
+   * @returns {*}
+   */
   this.getChartConfig = function(){
     return this.config.plots[0].config;
   };
 
+  /**
+   * Called when queryResultService emit event show-chart
+   * or open/close sidebar item
+   * @param bool <Boolean>
+   * @param ids <Array> passed by query result services
+   * @param container DOM element - passed by query result service
+   * @param relationData Passed by query result service
+   * @returns {Promise<unknown>}
+   */
   this.showChart = function(bool, ids, container, relationData){
-    return new Promise(resolve =>{
-      if (bool) {
+    return new Promise(resolve => {
+      // check if set true (show chart)
+      if (true === bool) {
+        // need to be async
         setTimeout(()=>{
+          // create QPlotly Component
           const content =  new QPlotlyComponent({
             service: this,
             ids,
             relationData
           });
+
+          // get Internal (Vue) component of g3w Component
           const component = content.getInternalComponent();
-          if (container) {
-            component.$once('hook:mounted', async function(){
-              container.append(this.$el);
-            });
-            component.$mount();
-            this.chartContainers.find(queryResultsContainer => container.selector === queryResultsContainer.container.selector).component = component;
-          } else {
-            // called from sidebar component
-            this.onceafter('chartsReady', ()=> {
-              resolve()
-            });
+          // called by sidebar item
+          if ("undefined" === typeof container) {
+            // once chartsReady event resolve promise
+            //set self variable to refer to service
             const self = this;
             GUI.showContent({
               closable: false,
@@ -600,6 +1008,7 @@ function Service(){
                   fontSize: '1.3em'
                 }
               },
+              //set header action tools (ex. map filter)
               headertools: [
                 Vue.extend({
                   ...HeaderContentAction,
@@ -615,8 +1024,9 @@ function Service(){
                     }
                   },
                   methods: {
-                    async showMapFeaturesCharts(){
-                      const {charts, order } = await self.showMapFeaturesAllCharts(true);
+                    async updateCharts(){
+                      const {charts, order } = await self.updateCharts(true);
+                      await this.$nextTick();
                       self.emit('change-charts',{
                         charts,
                         order
@@ -627,34 +1037,50 @@ function Service(){
               ],
               content
             });
+          } else {//if not called from Query Result Service
+            component.$once('hook:mounted', async function(){
+              container.append(this.$el);
+            });
+            component.$mount();
+            this.chartContainers.find(queryResultsContainer => container.selector === queryResultsContainer.container.selector).component = component;
           }
         })
       } else {
-        if (container) this.clearChartContainers(container);
-        else GUI.closeContent();
+        if ("undefined" === typeof container) {
+          GUI.closeContent();
+        } else {
+          this.clearChartContainers(container);
+        }
         resolve();
       }
     })
   };
 
+  /**
+   * Clear method
+   */
   this.clear = function(){
     GUI.removeComponent('qplotly', 'sidebar', {position: 1});
-    this.emit('clear');
+    GUI.closeContent();
     // listen layer change filter to reload the charts
     layersId.forEach(layerId => {
       const layer = CatalogLayersStoresRegistry.getLayerById(layerId);
-      layer && layer.off('filtertokenchange', this.changeChartWhenFilterChange)
+      if ("undefined" !== typeof layer) {
+        layer.off('filtertokenchange', this.changeChartWhenFilterChange)
+      }
     });
+
     this.mapService = null;
     this.chartContainers = [];
     this.queryResultService.removeListener('show-charts', this.showChartsOnContainer);
     this.queryResultService.un('closeComponent', this.closeComponentKeyEevent);
     this.closeComponentKeyEevent = null;
-    GUI.closeContent();
-    layersId = null;
+    layersId.clear();
     this.mainbboxtool = null;
     this.queryResultService = null;
+    this.emit('clear');
   };
+
 }
 
 inherit(Service, PluginService);

@@ -1,19 +1,66 @@
 <template>
-  <div style="width:100%;" class="g3w-chart-header" >
-    <div class="skin-background-color" style="display:flex; width: 100%; font-weight: bold; padding: 2px; min-height: 20px; font-size: 1.4em; text-align: center; color: #FFFFFF">
-      <div style="margin:auto">{{ title }}</div>
-      <div v-if="showtools" class="plot-tools" style="background-color: #FFFFFF; padding: 2px; font-size: 1.0em; border-radius: 3px">
-        <span v-if="tools.selection.active" style="margin: auto" class="action-button skin-tooltip-bottom" @click="toggleFilter" :class="{'toggled': tools.filter.active}" data-placement="bottom" data-toggle="tooltip" v-t-tooltip.create="'plugins.qplotly.tooltip.filter_chart'">
-          <span  class="action-button-icon" :class="g3wtemplate.getFontClass('filter')"></span>
-        </span>
-        <span v-if="tools.geolayer.show" style="margin: auto" class="action-button skin-tooltip-bottom" :class="{'toggled': tools.geolayer.active }" @click="toggleBBoxTool" data-placement="bottom" data-toggle="tooltip" v-t-tooltip.create="'plugins.qplotly.tooltip.show_feature_on_map'">
-          <span  class="action-button-icon" :class="g3wtemplate.getFontClass('map')"></span>
-        </span>
+  <div
+    style="width:100%;"
+    class="g3w-chart-header">
+
+    <div
+      class="skin-background-color"
+      style="display:flex; width: 100%; font-weight: bold; padding: 2px; min-height: 20px; font-size: 1.4em; text-align: center; color: #FFFFFF">
+
+      <div style="margin:auto">
+        {{ title }}
       </div>
+
+      <div v-if="showtools" class="plot-tools" style="background-color: #FFFFFF; padding: 2px; font-size: 1.0em; border-radius: 3px">
+
+        <span
+          v-if="tools.selection.active"
+          style="margin: auto" class="action-button skin-tooltip-bottom"
+          @click.stop="toggleFilter" :class="{'toggled': tools.filter.active}"
+          data-placement="bottom"
+          data-toggle="tooltip"
+          v-t-tooltip.create="'plugins.qplotly.tooltip.filter_chart'">
+
+          <span
+            class="action-button-icon"
+            :class="g3wtemplate.getFontClass('filter')">
+          </span>
+
+        </span>
+
+        <span
+          v-if="tools.geolayer.show"
+          style="margin: auto"
+          class="action-button skin-tooltip-bottom"
+          :class="{'toggled': tools.geolayer.active }"
+          @click.stop="toggleBBoxTool"
+          data-placement="bottom"
+          data-toggle="tooltip"
+          v-t-tooltip.create="'plugins.qplotly.tooltip.show_feature_on_map'">
+
+          <span
+            class="action-button-icon"
+            :class="g3wtemplate.getFontClass('map')">
+          </span>
+
+        </span>
+
+      </div>
+
     </div>
-    <ul v-if="filters.length > 0" class="skin-color" style="margin-top: 5px; list-style-type: none; background-color: #FFFFFF; padding-left: 3px; font-weight: bold">
-      <li v-for="filter in filters" :key="filter" v-t-plugin="`qplotly.filters.${filter}`"></li>
+
+    <ul
+      v-if="filters.length > 0"
+      class="skin-color" style="margin-top: 5px; list-style-type: none; background-color: #FFFFFF; padding-left: 3px; font-weight: bold">
+
+      <li
+        v-for="filter in filters"
+        :key="filter"
+        v-t-plugin="`qplotly.filters.${filter}`">
+      </li>
+
     </ul>
+
   </div>
 </template>
 
@@ -69,7 +116,7 @@
           active:this.tools.geolayer.active
         });
       }
-    }
+    },
   }
 </script>
 

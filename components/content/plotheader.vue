@@ -80,16 +80,18 @@
       },
       tools: {
         type: Object,
-        default: {
-          filter: {
-           active: false
-          },
-          selection: {
-           active: false
-          },
-          geolayer: {
-            show: false,
-            active: false
+        default() {
+          return {
+            filter: {
+              active: false
+            },
+            selection: {
+              active: false
+            },
+            geolayer: {
+              show: false,
+              active: false
+            }
           }
         }
       },

@@ -1,4 +1,16 @@
 {
-  "presets": ["env"],
-  "plugins": ["transform-remove-strict-mode", "transform-object-rest-spread"]
+  "presets": [
+    [
+      "env",
+      {
+        "exclude": [
+          "transform-regenerator"
+        ]
+      }
+    ]
+  ],
+  "plugins": [
+    "transform-remove-strict-mode",
+    "transform-object-rest-spread"
+  ]
 }

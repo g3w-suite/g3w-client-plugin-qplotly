@@ -2,11 +2,11 @@ import HeaderContentAction from './components/content/headeraction.vue';
 import QPlotly             from './components/content/qplotly.vue';
 
 const {
-    base,
-    inherit,
-    XHR,
-    debounce,
-    toRawType,
+  base,
+  inherit,
+  XHR,
+  debounce,
+  toRawType,
 }                                     = g3wsdk.core.utils;
 const { GUI }                         = g3wsdk.gui;
 const { ApplicationState }            = g3wsdk.core;
@@ -736,6 +736,85 @@ function Service() {
   };
 
   /**
+   * @returns { Array } plots that need to be get data to show charts
+   */
+  function _GIVE_ME_A_NAME_0 (self, layerIds, plotIds) {
+    /** @FIXME add description */
+    if (undefined !== layerIds) {
+      return _GIVE_ME_A_NAME_1(self, layerIds);
+    }
+    /** @FIXME add description */
+    if (undefined !== plotIds) {
+      return _GIVE_ME_A_NAME_2(self, plotIds);
+    }
+    /** @FIXME add description */
+    return _GIVE_ME_A_NAME_3(self);
+  }
+
+  /**
+   * @returns { Array } plots request from Query Result Service
+   */
+  function _GIVE_ME_A_NAME_1(self, layerIds) {
+    return self.config.plots.filter(plot => -1 !== layerIds.indexOf(plot.qgs_layer_id));
+  }
+
+  /**
+   * @returns { Array } plots that have id belong to plotIds array set by check uncheck plot on sidebar interface
+   */
+  function _GIVE_ME_A_NAME_2(self, plotIds) {
+    const plots = [];
+
+    plotIds.forEach((plotId) => {
+      // check if is child of already show plots
+      let addPlot = self.getShowPlots(true).find(plot => {
+        return (
+          (
+            plot.id !== plotId &&
+            null !== plot.withrelations &&
+            // find a plot that has withrelations array and with relationLayer the same layer id belong to plot qgis_layer_id
+            (undefined !== plot.withrelations.relations.find(({ id: relationId, relationLayer }) => (
+              relationLayer === self.getPlotById(plotId).qgs_layer_id &&
+              (
+                null === plot.withrelations.data ||
+                undefined === plot.withrelations.data[relationId] ||
+                undefined === plot.withrelations.data[relationId].find(({ id }) => id === plotId)
+              )
+            )))
+          )
+        )
+      })
+      // if not find add plot by plotId
+      if (undefined === addPlot) {
+        addPlot = self.getPlotById(plotId)
+      }
+      // check if already (in case of parent plots) added to plots
+      if (undefined === plots.find((plot) => plot === addPlot)) {
+        plots.push(addPlot);
+      }
+    });
+
+    return plots;
+  }
+
+  /**
+   * @returns { Array } plots that have attribute show to true and not in relation with other plot show
+   */
+  function _GIVE_ME_A_NAME_3(self) {
+    return self.getShowPlots(true).filter(plot => {
+      return (
+        // and if not belong to show plot father relation
+        (undefined === self.getShowPlots(true).find((p) =>
+        (
+          plot.id !== p.id &&                    // is not the same plot id
+          null !== p.withrelations &&            // plot has relations
+          // find a plot that has withrelations array and with relationLayer the same layer id belog to plot qgis_layer_id
+          undefined !== p.withrelations.relations.find(({ id, relationLayer }) => ((relationLayer === plot.qgs_layer_id)))
+        )))
+      )
+    })
+  }
+
+  /**
    * Get charts data from server
    * 
    * @param { Object } opts
@@ -757,65 +836,7 @@ function Service() {
     this.relationData = relationData;
 
     return new Promise((resolve) => {
-      let plots; // array of plots that need to be get data to show charts
-
-      const GIVE_ME_A_NAME_1 = undefined !== layerIds;
-      const GIVE_ME_A_NAME_2 = !GIVE_ME_A_NAME_1 && undefined !== plotIds;
-      const GIVE_ME_A_NAME_3 = !GIVE_ME_A_NAME_1 && !GIVE_ME_A_NAME_2;
-
-      // get plots request from Query Result Service
-      if (GIVE_ME_A_NAME_1) {
-        plots = this.config.plots.filter(plot => -1 !== layerIds.indexOf(plot.qgs_layer_id));
-      }
-
-      // filter only plots that have id belong to plotIds array set by check uncheck plot on sidebar interface
-      if (GIVE_ME_A_NAME_2) {
-        plots = [];
-        plotIds.forEach((plotId) => {
-          // check if is child of already show plots
-          let addPlot = this.getShowPlots(true).find(plot => {
-            return (
-              (
-                plot.id !== plotId &&
-                null !== plot.withrelations &&
-                // find a plot that has withrelations array and with relationLayer the same layer id belong to plot qgis_layer_id
-                (undefined !== plot.withrelations.relations.find(({id:relationId, relationLayer}) => (
-                  relationLayer === this.getPlotById(plotId).qgs_layer_id &&
-                  (
-                    null === plot.withrelations.data ||
-                    undefined === plot.withrelations.data[relationId] ||
-                    undefined === plot.withrelations.data[relationId].find(({ id }) => id === plotId)
-                  )
-                )))
-              )
-            )
-          })
-          // if not find add plot by plotId
-          if (undefined === addPlot) {
-            addPlot = this.getPlotById(plotId)
-          }
-          // check if already (in case of parent plots) added to plots
-          if (undefined === plots.find((plot) => plot === addPlot)) {
-            plots.push(addPlot);
-          }
-        });
-      }
-
-      // get only plots that have attribute show to true and not in relation with other plot show
-      if (GIVE_ME_A_NAME_3) {
-        plots = this.getShowPlots(true).filter(plot => {
-          return (
-            // and if not belong to show plot father relation
-            (undefined === this.getShowPlots(true).find((p) =>
-            (
-              plot.id !== p.id &&                    // is not the same plot id
-              null !== p.withrelations &&            // plot has relations
-              // find a plot that has withrelations array and with relationLayer the same layer id belog to plot qgis_layer_id
-              undefined !== p.withrelations.relations.find(({id, relationLayer}) => ((relationLayer === plot.qgs_layer_id)))
-            )))
-          )
-        })
-      }
+      const plots = _GIVE_ME_A_NAME_0(this, layerIds, plotIds);
 
       // create charts Object
       const chartsObject = this.createChartsObject({ order: layerIds && plots.map(plot => plot.id) });

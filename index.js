@@ -1,29 +1,33 @@
-import pluginConfig from './config';
+import pluginConfig       from './config';
 import MultiPlotComponent from './components/sidebar/Multiplot.vue';
-import Service from './service';
-const {base, inherit} = g3wsdk.core.utils;
-const {GUI} = g3wsdk.gui;
-const {Plugin:BasePlugin} = g3wsdk.core.plugin;
+import Service            from './service';
+
+const { base, inherit }      = g3wsdk.core.utils;
+const { GUI }                = g3wsdk.gui;
+const { Plugin: BasePlugin } = g3wsdk.core.plugin;
 
 const Plugin = function() {
-  const {name, i18n} = pluginConfig;
+  const { name, i18n } = pluginConfig;
+
   base(this, {
     name,
     service: Service,
-    i18n
+    i18n,
   });
+
   this.service.once('ready', () => {
     if (this.registerPlugin(this.config.gid)) {
       this.setupGUI();
       this.setReady(true);
     }
   });
+
   this.service.init(this.config);
 };
 
 inherit(Plugin, BasePlugin);
 
-Plugin.prototype.setupGUI = function(){
+Plugin.prototype.setupGUI = function() {
 
   const sidebarItemComponent = this.createSideBarComponent(MultiPlotComponent,
     {
@@ -41,19 +45,22 @@ Plugin.prototype.setupGUI = function(){
           when: 'before',
           cb: async bool => {
             await this.service.showChart(bool);
-          }
-        }
+          },
+        },
       },
       sidebarOptions: {
-        position: 1
-      }
+        position: 1,
+      },
     });
 
   GUI.on('closecontent', () => {
-    setTimeout(()=>{
-      sidebarItemComponent.getOpen() && sidebarItemComponent.click();
-    })
-  })
+    setTimeout(() => {
+      if (sidebarItemComponent.getOpen()) {
+        sidebarItemComponent.click();
+      }
+    });
+  });
+
 };
 
 Plugin.prototype.unload = function() {

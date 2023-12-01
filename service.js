@@ -136,14 +136,16 @@ function Service() {
      * Event handler of change chart
      *  
      * @param layerId passed by filter token (add or remove to a specific layer)
+     * 
+     * @fires change-charts
      */
     this.changeChartsEventHandler = debounce(async ({ layerId }) => {
 
       // change if one of these condition is true
       const change = (
-        (true === this.showCharts) &&
-        (undefined === this.relationData) &&
-        ("undefined" !== this.config.plots.find(plot => this.customParams.bbox || (plot.qgs_layer_id === layerId && true === plot.show)))
+        true === this.showCharts &&
+        undefined === this.relationData &&
+        this.config.plots.some(plot => this.customParams.bbox || (plot.qgs_layer_id === layerId && true === plot.show))
       );
 
       // skip when ..
@@ -159,7 +161,7 @@ function Service() {
       // there is a plot
       if (true === isTherePlotListensMoveEnd) {
         this.keyMapMoveendEvent.plotIds.forEach(plotId => {
-          const plot = this.config.plots.find(plot => plot.id === plotId.id);
+          const plot   = this.config.plots.find(plot => plot.id === plotId.id);
           plot.filters = [];
           plotreload.push(plot); // add plot to plot reaload
         });
@@ -185,7 +187,7 @@ function Service() {
             return plot.id;
           })
         }
-        await this.getChartsAndEmit({ plotIds });
+        this.emit('change-charts', await this.getCharts({ plotIds }));
       } catch(e) {
         console.warn(e);
       }
@@ -379,26 +381,13 @@ function Service() {
   };
 
   /**
-   * Get new data charts and emit `change-charts` listened by qplotly.vue component to redraw charts
-   * 
-   * @param { Object } options
-   * @param options.plotIds
-   * 
-   * @returns { Promise<void> }
-   * 
-   * @fires change-charts
-   */
-  this.getChartsAndEmit = async function({ plotIds } = {}) {
-    const { charts, order } = await this.getCharts({ plotIds }); // get charts
-    this.emit('change-charts', { charts, order })                // charts are change
-  };
-
-  /**
    * Show plot chart
    * 
    * @param plot
    * 
    * @returns { Promise<void> }
+   * 
+   * @fires change-charts
    */
   this.showPlot = async function(plot) {
 
@@ -434,13 +423,13 @@ function Service() {
             // if found clear plot data to force to reload by parent plot
             const plotIds = this.clearDataPlot(p);
             if (plotIds.length > 0) {
-              this.getChartsAndEmit({ plotIds });
+              this.getCharts({ plotIds }).then(d => this.emit('change-charts', d));
             }
           }
         });
     }
 
-    await this.getChartsAndEmit({ plotIds: [plot.id] });
+    this.emit('change-charts', await this.getCharts({ plotIds: [plot.id] }));
 
   };
 
@@ -451,6 +440,7 @@ function Service() {
    * 
    * @returns { Promise<void> }
    * 
+   * @fires change-charts
    * @fires show-hide-chart
    */
   this.hidePlot = async function(plot) {
@@ -475,7 +465,7 @@ function Service() {
     // clear data of plot
     const plotIds = this.clearDataPlot(plot);
     if (plotIds.length > 0) {
-      this.getChartsAndEmit({ plotIds });
+      this.emit('change-charts', await this.getCharts({ plotIds }));
     }
 
     this.setContentChartTools();
@@ -927,6 +917,23 @@ function Service() {
     return promises;
   }
 
+  function _GIVE_ME_A_NAME_7(charts, plot, is_error = false) {
+    if (!charts[plot.id]) {
+      charts[plot.id] = [];
+    }
+
+    this.setActiveFilters(plot);
+
+    charts.push({
+      filters: plot.filters,
+      layout:  plot.plot.layout,
+      tools:   plot.tools,
+      layerId: plot.qgs_layer_id,
+      title:   plot.plot.layout.title,
+      data:    is_error ? null : plot.data[0],
+    });
+  }
+
   /**
    * Get charts data from server
    * 
@@ -958,40 +965,28 @@ function Service() {
         .allSettled(
           plots.flatMap(plot => _GIVE_ME_A_NAME_6(this, plot, chartsplots, relationData, relationIdAlreadyLoaded))
         )
-        .then(async promisesData => {
-          promisesData.forEach((promise, i) => {
-            const is_error = 'fulfilled' !== promise.status || !promise.value.result; // some error occurs during get data from server
-            const plot     = chartsplots[index];
+        .then(async d => {
 
-            if (!charts[plot.id]) {
-              charts = [];
-            }
+          d.forEach(({ status, value }, index) => {
+            const is_error = 'fulfilled' !== status || !value.result; // some error occurs during get data from server
+            const plot     = chartsplots[index];
 
             // request has valid response with multiple chart plot of same plot
             if (!is_error) {
-              plot.data                 = promise.value.data;
+              plot.data                 = value.data;
               plot.loaded               = true;
               plot.plot.layout.title    = plot.plot.layout._title;
             }
 
-            this.setActiveFilters(plot);
-
-            charts.push({
-              filters: plot.filters,
-              layout:  plot.plot.layout,
-              tools:   plot.tools,
-              layerId: plot.qgs_layer_id,
-              title:   plot.plot.layout.title,
-              data:    is_error ? null : promise.value.data[0],
-            });
+            _GIVE_ME_A_NAME_7(charts, plot, is_error);
 
             // skip on relation or invalid response
-            if (is_error || promise.value.relation) {
+            if (is_error || value.relation) {
               return;
             } 
 
             // request has valid response
-            const { relations } = promise.value;
+            const { relations } = value;
 
             // add data to relations
             if (relations && null === plot.withrelations.data) {
@@ -1001,39 +996,25 @@ function Service() {
             }
 
             // data has a relations attributes data
-            // loop through relations by id
+            // loop through relations by id and get relation data filtered by only show plot
             Object
               .keys(relations || [])
-              .forEach(relationId => {
-                // get relation data
-                relations[relationId].forEach(({ id, data }) => {
-                  // get father filter plots
-                  const fatherPlotFilters = plot.filters;
-                  // filter only show plot
+              .forEach(relationId => relations[relationId]
+                .forEach(({ id, data }) => {
                   this.config.plots
-                    .filter(plot => plot.show && plot.id === id)
-                    .forEach((plot) => {
-                      this.setActiveFilters(plot);
-                      plot.loaded = true;
-                      plot.data   = data;
-                      if (!charts[plot.id]) {
-                        charts[plot.id] = [];
+                    .filter(p => p.show && p.id === id)
+                    .forEach(p => {
+                      p.loaded            = true;
+                      p.data              = data;
+                      p.plot.layout.title = `${this._relationIdName[relationId]} ${p.plot.layout._title}`;
+                      // get father filter plots
+                      if (plot.filters.length) {
+                        p.filters.push(`relation.${plot.filters[0]}`);
                       }
-                      charts[plot.id].push({
-                        data:    data[0],
-                        filters: plot.filters,
-                        layout:  layout,
-                        tools:   plot.tools,
-                        layerId: plot.qgs_layer_id,
-                        title:   plot.plot.layout.title,
-                      });
-                      plot.plot.layout.title = `${this._relationIdName[relationId]} ${plot.plot.layout._title}`;
-                      if (fatherPlotFilters.length) {
-                        plot.filters.push(`relation.${fatherPlotFilters[0]}`);
-                      }
+                      _GIVE_ME_A_NAME_7(charts, p);
                   });
                 })
-              });
+              );
 
           });
 

@@ -50,8 +50,10 @@ Plugin.prototype.setupGUI = function(){
     });
 
   GUI.on('closecontent', () => {
-    setTimeout(()=>{
-      sidebarItemComponent.getOpen() && sidebarItemComponent.click();
+    setTimeout(() => {
+      if (sidebarItemComponent.getOpen()) {
+        sidebarItemComponent.click();
+      }
     })
   })
 };

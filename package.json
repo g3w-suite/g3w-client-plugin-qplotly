@@ -3,10 +3,7 @@
   "version": "3.8.0-alpha.0",
   "description": "Data plotly plugin ",
   "main": "index.js",
-  "scripts": {
-    "watch": "gulp watch",
-    "build": "gulp default"
-  },
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/g3w-suite/g3w-client-plugin-qplotly.git"

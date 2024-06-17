@@ -1,0 +1,1 @@
+# g3w-client-plugin-qplotly v3.8.0-alpha.0

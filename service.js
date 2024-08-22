@@ -982,10 +982,10 @@ function Service(){
    */
   this.showChart = function(bool, ids, container, relationData){
     return new Promise(resolve => {
-      // check if set true (show chart)
+      // check if a set true (show chart)
       if (true === bool) {
         // need to be async
-        setTimeout(()=>{
+        setTimeout(() => {
           // create QPlotly Component
           const content =  new QPlotlyComponent({
             service: this,
@@ -1046,7 +1046,7 @@ function Service(){
           }
         })
       } else {
-        if ("undefined" === typeof container) {
+        if (undefined === container) {
           GUI.closeContent();
         } else {
           this.clearChartContainers(container);

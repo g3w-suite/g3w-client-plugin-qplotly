@@ -1,5 +1,9 @@
 <template>
-  <ul id="chart_plot_multi_plot" class="treeview-menu" style="padding: 10px;color:#FFFFFF">
+  <ul
+    id    = "chart_plot_multi_plot"
+    class = "treeview-menu"
+    style = "padding: 10px;color :#FFFFFF"
+  >
     <li
       v-for="plot in plots"
       :key="plot.id">
@@ -30,27 +34,23 @@ import PluginService from '../../service';
 
 export default {
   name: "Multiplot",
-  data(){
+  data() {
     return {
       plots: PluginService.getPlots(),
     };
   },
   computed: {
-    loading(){
+    loading() {
       return PluginService.state.chartsloading;
     }
   },
 
   methods:{
-    showHidePlot(plot){
-      setTimeout(()=>{
+    showHidePlot(plot) {
+      setTimeout(() => {
         PluginService[plot.show && 'showPlot' || 'hidePlot'](plot);
       })
     }
   },
 }
 </script>
-
-<style scoped>
-
-</style>

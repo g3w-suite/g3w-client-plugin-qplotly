@@ -2,7 +2,6 @@ import pluginConfig       from './config';
 import MultiPlotComponent from './components/sidebar/Multiplot.vue';
 import Service            from './service';
 
-const { GUI }              = g3wsdk.gui;
 const { Plugin:BasePlugin} = g3wsdk.core.plugin;
 
 new (class Plugin extends BasePlugin {

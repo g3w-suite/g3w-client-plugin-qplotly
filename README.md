@@ -1,1 +1,1 @@
-# g3w-client-plugin-qplotly v3.8.0
+# g3w-client-plugin-qplotly v3.9.0

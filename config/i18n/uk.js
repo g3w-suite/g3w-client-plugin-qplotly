@@ -1,22 +1,22 @@
 export default {
-  title: 'Charts',
-  pietitle: "Pie Charts",
+  title: 'Діаграми',
+  pietitle: "Кругові діаграми",
   no_subplots_charts: 'Exclusive plots',
-  no_plots : 'No chart. Add at least one plot',
-  no_data: "No Data available",
+  no_plots : 'Без діаграм. Додайте принаймні одну діаграму.',
+  no_data: "Дані не доступні",
   tooltip: {
-    show_all_features_on_map: "Filter all plots according to the geometries visible on the map",
-    show_feature_on_map: "Filter plot according to the geometries visible on the map",
-    filter_chart: "Filter plots according to the selected geometries/records"
+    show_all_features_on_map: "Фільтрувати всі діаграми відповідно до видимих на мапі об'єктів",
+    show_feature_on_map: "Фільтрувати діаграму відповідно до видимих на мапі об'єктів",
+    filter_chart: "Фільтрувати діаграми відповідно до вибраних об'єктів/записів"
   },
   filters: {
-    in_bbox: "The data ​​shown in the plot are filtered according to the geometries visible on the map",
-    filtertoken: "The data ​​shown in the plot are filtered according to the selected geometries/records",
-    in_bbox_filtertoken: "The data ​​shown in the plot are filtered according to the geometries/records selected and visible on the map",
+    in_bbox: "Діаграму відфільтровано відповідно до видимих на мапі об'єктів",
+    filtertoken: "Діаграму відфільтровано відповідно до вибраних об'єктів/записів",
+    in_bbox_filtertoken: "Діаграму відфільтровано відповідно до вибраних та видимих на мапі об'єктів/записів",
     relation: {
-      in_bbox: "The data​​ shown in the plot are filtered according to the reference (parents) geometries visible on the map",
-      filtertoken: "The data ​​shown in the plot are filtered according to the reference (parents) selected geometries/records",
-      in_bbox_filtertoken: "The data ​​shown in the plot are filtered according to the reference (parents) geometries/records selected and visible on the map"
+      in_bbox: "Діаграму відфільтровано відповідно до видимих на мапі опорних (батьківських) об'єктів",
+      filtertoken: "Діаграму відфільтровано відповідно до вибраних опорних (батьківських) об'єктів/записів",
+      in_bbox_filtertoken: "Діаграму відфільтровано відповідно до вибраних та видимих на мапі опорних (батьківських) об'єктів/записів"
     }
   }
 }

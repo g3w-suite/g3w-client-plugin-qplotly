@@ -1046,9 +1046,7 @@ function Service(){
           }
         })
       } else {
-        if (undefined === container) {
-          GUI.closeContent();
-        } else {
+        if (undefined !== container) {
           this.clearChartContainers(container);
         }
         resolve();

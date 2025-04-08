@@ -1046,7 +1046,12 @@ function Service(){
           }
         })
       } else {
-        if (undefined !== container) {
+        if (undefined === container) {
+          setTimeout(() => {
+            //close content if current i qplolty chart content
+            'qplotly' === GUI.getCurrentContent().content.id && GUI.closeContent();
+          })
+        } else {
           this.clearChartContainers(container);
         }
         resolve();

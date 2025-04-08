@@ -7,6 +7,7 @@ function QPlotlyComponent(options={}){
   base(this, options);
   const {service, ids, relationData} = options;
   this.title = "qplotly";
+  this.id    = "qplotly";
   this.state.visible = true;
   const InternalComponent = Vue.extend(QPlotly);
   this.internalComponent = new InternalComponent({
